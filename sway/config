@@ -1,0 +1,32 @@
+### Sway config — X13 signage
+set $mod Mod4
+set $term foot
+set $menu wofi --show drun
+
+# 出力レイアウト（内蔵=作業 / 外部=縦回転サイネージ）
+output eDP-1 transform normal position 0 0
+output DP-2 transform 270 position 1920 0
+
+# mpv(サイネージ)を外部DP-2に固定して全画面・枠なし
+for_window [app_id="mpv"] move container to output DP-2, fullscreen enable, border none
+
+# 起動時にサイネージ自動起動
+exec ~/run/signage-sway.sh
+
+# 最低限のキーバインド
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exit
+bindsym $mod+Left focus left
+bindsym $mod+Right focus right
+bindsym $mod+Up focus up
+bindsym $mod+Down focus down
+
+bar {
+    position top
+    status_command while date +'%Y-%m-%d %H:%M'; do sleep 10; done
+}
+
+include /etc/sway/config.d/*
