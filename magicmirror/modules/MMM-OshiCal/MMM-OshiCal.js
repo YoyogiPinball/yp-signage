@@ -16,7 +16,10 @@ Module.register("MMM-OshiCal", {
 
 	start() {
 		this.events = [];
+		this.hiddenCount = 0;
 		this.loaded = false;
+		// 予定の列数を body class に反映（CSS 切替用）。X13_COLS 由来（既定4）。
+		document.body.classList.add("x13-cols-" + (this.config.columns || 4));
 		this.requestEvents();
 		setInterval(() => this.requestEvents(), this.config.updateInterval);
 	},
@@ -25,12 +28,14 @@ Module.register("MMM-OshiCal", {
 		this.sendSocketNotification("OSHICAL_FETCH", {
 			icsUrl: this.config.icsUrl,
 			maxEntries: this.config.maxEntries,
+			debugNow: this.config.debugNow || "", // デバッグ現在時刻（空なら実時刻）
 		});
 	},
 
 	socketNotificationReceived(notification, payload) {
 		if (notification !== "OSHICAL_EVENTS") return;
 		this.events = payload.events || [];
+		this.hiddenCount = payload.hiddenCount || 0;
 		this.loaded = true;
 		this.updateDom(500);
 	},
@@ -50,31 +55,51 @@ Module.register("MMM-OshiCal", {
 			return wrapper;
 		}
 
-		// grid 1本に badge / body を交互に流し込む → 時刻列(col1)が全行で縦に揃う。
+		// 1件=1セル(.oc-item)。列優先（上→下に埋めて次の列へ）にするため、件数から
+		// 行数を出して grid-template-rows を inline 指定する。＝左の列ほど早い時刻。
+		const cols = this.config.columns || 4;
 		const list = document.createElement("div");
 		list.className = "oc-list";
-		this.events.forEach((ev) => {
-			const badge = document.createElement("div");
-			badge.className = ev.live ? "oc-badge oc-live" : "oc-badge";
-			badge.textContent = ev.time;
 
-			const body = document.createElement("div");
-			body.className = ev.live ? "oc-body oc-live" : "oc-body";
-			const who = document.createElement("div");
-			who.className = "oc-who";
-			who.textContent = ev.name || "";
-			body.appendChild(who);
-			if (ev.title) {
-				const sub = document.createElement("div");
-				sub.className = "oc-sub";
-				sub.textContent = ev.title;
-				body.appendChild(sub);
-			}
+		const items = this.events.map((ev) => this.makeItem(ev.time, ev.name, ev.title, ev.live));
+		// 打ち切った残り件数を「＋他 N 件」で示す（maxEntries を超えたとき）。
+		if (this.hiddenCount > 0) {
+			const more = this.makeItem("＋", `他 ${this.hiddenCount} 件`, "", false);
+			more.classList.add("oc-more");
+			items.push(more);
+		}
+		const rows = Math.max(1, Math.ceil(items.length / cols));
+		list.style.gridTemplateRows = `repeat(${rows}, auto)`;
+		items.forEach((it) => list.appendChild(it));
 
-			list.appendChild(badge);
-			list.appendChild(body);
-		});
 		wrapper.appendChild(list);
 		return wrapper;
+	},
+
+	// 1件分のセル（時刻バッジ｜名前＋予定）を作る。
+	makeItem(time, name, title, live) {
+		const item = document.createElement("div");
+		item.className = live ? "oc-item oc-live" : "oc-item";
+
+		const badge = document.createElement("div");
+		badge.className = live ? "oc-badge oc-live" : "oc-badge";
+		badge.textContent = time;
+
+		const body = document.createElement("div");
+		body.className = live ? "oc-body oc-live" : "oc-body";
+		const who = document.createElement("div");
+		who.className = "oc-who";
+		who.textContent = name || "";
+		body.appendChild(who);
+		if (title) {
+			const sub = document.createElement("div");
+			sub.className = "oc-sub";
+			sub.textContent = title;
+			body.appendChild(sub);
+		}
+
+		item.appendChild(badge);
+		item.appendChild(body);
+		return item;
 	},
 });

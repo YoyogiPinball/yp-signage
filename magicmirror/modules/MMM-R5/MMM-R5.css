@@ -3,13 +3,28 @@
  * object-fit: contain で切れないように収める（背景は黒でレターボックス）。
  */
 .mmm-r5 {
+	position: relative;
 	width: 100vw;
 	height: 100vh;
 	background: #000;
 	overflow: hidden;
 }
 
+/* 背面のぼかし拡大レイヤ。cover で画面を満たし、帯を写真の延長で埋める。 */
+.mmm-r5-bg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	filter: blur(28px) brightness(0.55) saturate(1.1);
+	transform: scale(1.12); /* ぼかしで生じる縁の透け防止に少し拡大 */
+}
+
+/* 前面の本画像。contain で切れずに全体表示。 */
 .mmm-r5-img {
+	position: absolute;
+	inset: 0;
 	width: 100%;
 	height: 100%;
 	object-fit: contain;

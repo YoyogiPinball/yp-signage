@@ -10,26 +10,35 @@ const JST_OFFSET = 9 * 60 * 60 * 1000;
 module.exports = NodeHelper.create({
 	socketNotificationReceived(notification, payload) {
 		if (notification !== "OSHICAL_FETCH") return;
-		this.fetchAndParse(payload.icsUrl, payload.maxEntries || 12);
+		this.fetchAndParse(payload.icsUrl, payload.maxEntries || 12, payload.debugNow || "");
 	},
 
-	async fetchAndParse(url, maxEntries) {
+	async fetchAndParse(url, maxEntries, debugNow) {
 		let events = [];
+		let hiddenCount = 0;
 		try {
 			const res = await fetch(url);
 			const text = await res.text();
-			events = this.parseIcs(text, maxEntries);
+			const r = this.parseIcs(text, maxEntries, debugNow);
+			events = r.events;
+			hiddenCount = r.hiddenCount;
 		} catch (e) {
 			console.error(`[MMM-OshiCal] 取得/解析エラー: ${e.message}`);
 		}
-		this.sendSocketNotification("OSHICAL_EVENTS", { events });
+		this.sendSocketNotification("OSHICAL_EVENTS", { events, hiddenCount });
 	},
 
-	parseIcs(text, maxEntries) {
+	parseIcs(text, maxEntries, debugNow) {
 		// iCal の折り返し（行頭スペース/タブは前行の続き）を戻してから行分割。
 		const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
 
-		const now = Date.now();
+		// デバッグ用に現在時刻を差し替え可能（X13_OSHI_NOW 由来）。空/不正なら実時刻。
+		// X13 は JST 稼働なので "2026-07-19T06:00" はそのまま JST 壁時計として解釈される。
+		let now = Date.now();
+		if (debugNow) {
+			const t = new Date(debugNow).getTime();
+			if (!Number.isNaN(t)) now = t;
+		}
 		const nowJst = new Date(now + JST_OFFSET);
 		const todayKey = `${nowJst.getUTCFullYear()}-${nowJst.getUTCMonth() + 1}-${nowJst.getUTCDate()}`;
 		const nowHour = nowJst.getUTCHours(); // 現在の「時」(JST)。同じ時間帯の予定を配信中とみなす判定に使う。
@@ -59,7 +68,9 @@ module.exports = NodeHelper.create({
 
 		timed.sort((a, b) => a.ms - b.ms);
 		// 終日は時刻付きの後ろに置く（モックアップの並びに合わせる）。
-		return timed.concat(allday).slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title, live: !!e.live }));
+		const all = timed.concat(allday);
+		const events = all.slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title, live: !!e.live }));
+		return { events, hiddenCount: Math.max(0, all.length - events.length) };
 	},
 
 	classify(ev, todayKey, now, hourStartMs, nowHour, timed, allday) {

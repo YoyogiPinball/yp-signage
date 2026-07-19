@@ -18,7 +18,6 @@ Module.register("MMM-MonthCal", {
 	},
 
 	getDom() {
-		const H = window.OshiHolidays;
 		const wrap = document.createElement("div");
 		wrap.className = "mc";
 
@@ -27,11 +26,25 @@ Module.register("MMM-MonthCal", {
 		const m = now.getMonth() + 1; // 1-12
 		const today = now.getDate();
 
-		// 見出し「2026年7月」。
+		// 今月と来月を横並び。来月は 12月→翌年1月 の繰り上がりに対応。
+		const nextY = m === 12 ? y + 1 : y;
+		const nextM = m === 12 ? 1 : m + 1;
+
+		wrap.appendChild(this.makeMonth(y, m, today)); // 今月（今日をハイライト）
+		wrap.appendChild(this.makeMonth(nextY, nextM, 0)); // 来月（ハイライトなし）
+		return wrap;
+	},
+
+	// y年m月のミニカレンダー（見出し＋グリッド）を作る。today に一致する日だけ丸ハイライト。
+	makeMonth(y, m, today) {
+		const H = window.OshiHolidays;
+		const month = document.createElement("div");
+		month.className = "mc-month";
+
 		const cap = document.createElement("div");
 		cap.className = "mc-cap";
 		cap.textContent = `${y}年${m}月`;
-		wrap.appendChild(cap);
+		month.appendChild(cap);
 
 		const table = document.createElement("table");
 		table.className = "mc-table";
@@ -59,13 +72,13 @@ Module.register("MMM-MonthCal", {
 					// 色の優先: 日曜/祝日=赤 が 土曜=青 に勝つ（土曜が祝日なら赤）。
 					if (c === 0 || H.isHoliday(y, m, day)) td.classList.add("mc-red");
 					else if (c === 6) td.classList.add("mc-sat");
-					if (day === today) td.classList.add("mc-today");
+					if (today && day === today) td.classList.add("mc-today");
 				}
 				tr.appendChild(td);
 			}
 			table.appendChild(tr);
 		}
-		wrap.appendChild(table);
-		return wrap;
+		month.appendChild(table);
+		return month;
 	},
 });

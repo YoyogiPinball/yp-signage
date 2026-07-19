@@ -4,15 +4,35 @@
  */
 .MMM-OshiCal .oc-list {
 	display: grid;
-	grid-template-columns: auto 1fr; /* 時刻列 | 内容列。auto が全行で最大幅に揃う＝縦揃え */
-	column-gap: 9px;
-	row-gap: 7px;
-	font-size: 14px;
+	grid-auto-flow: column; /* 列優先：上→下に埋めてから次の列へ（左の列ほど早い時刻） */
+	grid-auto-columns: 1fr; /* 各列を等幅に（配信名は…で省略） */
+	/* grid-template-rows は front が件数から算出して inline 指定する */
+	width: 100%;
+	column-gap: 24px;
+	row-gap: 6px;
+	font-size: 13px;
 	-webkit-font-smoothing: antialiased;
 }
 
+/* 1件分のセル：時刻バッジ | 名前＋予定。
+ * align-items: stretch で、時刻バッジを本文（名前＋予定の2行）の高さに合わせて伸ばす。 */
+.MMM-OshiCal .oc-item {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: 8px;
+	align-items: stretch;
+	min-width: 0;
+}
+.MMM-OshiCal .oc-body {
+	min-width: 0; /* 名前・予定の省略記号(…)を効かせるため */
+}
+
 .MMM-OshiCal .oc-badge {
-	align-self: start;
+	/* 本文の高さいっぱいに伸ばし、時刻を縦中央に置く（2行の本文と高さを揃える）。 */
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	font-weight: 700;
 	font-size: 13px;
 	font-variant-numeric: tabular-nums; /* 時刻の桁を揃える */
@@ -29,11 +49,17 @@
 
 .MMM-OshiCal .oc-who {
 	font-weight: 700;
-	line-height: 1.25;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .MMM-OshiCal .oc-sub {
-	line-height: 1.25;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* 可読性: ぼかしを効かせたソフト黒フチ（ハードなオフセットはジャギるので使わない）。 */

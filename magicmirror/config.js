@@ -18,6 +18,14 @@ const secrets = (() => {
 	}
 })();
 
+// --- 環境変数（一時テスト用） ---
+// X13_COLS: 下部「今日の予定」の列数。3 か 4（既定4）。
+// X13_OSHI_NOW: OshiCal のデバッグ現在時刻（例 "2026-07-19T06:00"）。空なら実時刻。
+//   起動例: X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
+const oshiNow = process.env.X13_OSHI_NOW || "";
+const oshiCols = process.env.X13_COLS === "3" ? 3 : 4; // 予定の列数（3 か 4）。既定4。
+const oshiMax = oshiCols * 6; // 列数×6行を表示上限に
+
 let config = {
 	address: "localhost",
 	port: 8080,
@@ -56,9 +64,11 @@ let config = {
 				shuffle: true,
 			},
 		},
+		// 上部バー(top_bar)に 時計・月カレ・天気 を横並び。下部バー(bottom_bar)は予定のみ。
+		// バーの見た目は custom.css の .region.top.bar / .region.bottom.bar で作る。
 		{
 			module: "clock",
-			position: "top_right",
+			position: "top_bar",
 			classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 			config: {
 				timezone: "Asia/Tokyo",
@@ -67,24 +77,45 @@ let config = {
 				dateFormat: "YYYY/MM/DD（dd）",
 			},
 		},
-		// 天気（左上）：OWM 無料APIキー(secrets.owmApiKey)があるときだけ有効化。
-		// current=現在の天気/気温、forecast=/forecast(無料の 5day/3h)を日集約した5日予報。
-		// 「先24hを毎時」は無料枠では出せないため、現在＋5日の"概ねの天気"に留める（合意 2026-07-19）。
-		// 地域は secrets.weatherLat / weatherLon で上書き可。未設定は東京(35.681,139.767)。
+		// 今日の予定（iCal購読）＝下部バー(bottom_bar)。ここだけ下に置く。
+		...(secrets.calendarIcs
+			? [
+					{
+						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
+						// 作れないため、同じ ICS を node_helper で取得・整形して描画する。
+						module: "MMM-OshiCal",
+						position: "bottom_bar",
+						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
+						config: {
+							icsUrl: secrets.calendarIcs,
+							maxEntries: oshiMax,
+							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
+							columns: oshiCols, // 予定の列数（front が body class x13-cols-N に反映）
+							debugNow: oshiNow, // デバッグ現在時刻（空なら実時刻）
+						},
+					},
+			  ]
+			: []),
+		// 月カレンダー＝上バー中央：予定は出さず当月グリッドのみ。土=青／日祝=赤。
+		{
+			module: "MMM-MonthCal",
+			position: "top_bar",
+			classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
+		},
+		// 天気＝上バー右：現在(今日の気温)を上、5日予報を下に縦積み（配置は custom.css のグリッド）。
+		// OWM 無料キーがある時だけ。weather-current / weather-forecast クラスで段を割り振る。
 		...(secrets.owmApiKey
 			? [
 					{
 						module: "weather",
-						position: "top_left",
-						classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
+						position: "top_bar",
+						classes: "r5-plate weather-current",
 						config: {
 							weatherProvider: "openweathermap",
-							// 既定は 3.0(/onecall・有料サブスク別) で無料キーだと loading 固定になる。
-							// 無料の v2.5 エンドポイントを明示する。
 							apiVersion: "2.5",
 							weatherEndpoint: "/weather", // 現在の天気(v2.5・無料)
 							type: "current",
-							onlyTemp: true, // 体感温度・日の出・風・湿度を出さず、アイコン＋気温だけにする
+							onlyTemp: true, // アイコン＋気温だけ（体感・日の出・風・湿度は出さない）
 							lat: secrets.weatherLat ?? 35.681,
 							lon: secrets.weatherLon ?? 139.767,
 							apiKey: secrets.owmApiKey,
@@ -92,9 +123,8 @@ let config = {
 					},
 					{
 						module: "weather",
-						position: "top_left",
-						header: "5日間予報",
-						classes: "r5-plate",
+						position: "top_bar",
+						classes: "r5-plate weather-forecast",
 						config: {
 							weatherProvider: "openweathermap",
 							apiVersion: "2.5", // 無料枠。既定 3.0(/onecall) を避ける
@@ -111,29 +141,6 @@ let config = {
 					},
 			  ]
 			: []),
-		// カレンダー：secrets.calendarIcs があるときだけ有効化（URL未設定なら丸ごと出さない）
-		...(secrets.calendarIcs
-			? [
-					{
-						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
-						// 作れないため、同じ ICS を node_helper で取得・整形して描画する。
-						module: "MMM-OshiCal",
-						position: "bottom_left",
-						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
-						config: {
-							icsUrl: secrets.calendarIcs,
-							maxEntries: 12,
-							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
-						},
-					},
-			  ]
-			: []),
-		// 月カレンダー（右下）：予定は出さず当月グリッドのみ。土=青／日祝=赤。自作・依存なし。
-		{
-			module: "MMM-MonthCal",
-			position: "bottom_right",
-			classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
-		},
 	],
 };
 

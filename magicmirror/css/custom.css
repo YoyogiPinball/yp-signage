@@ -6,9 +6,9 @@
 /* 画面端からの余白（既定60px）を詰めて、各パネルを外側（角）へ寄せる。
  * フルスクリーン背景(MMM-R5)は別処理で全面を保つので影響しない。 */
 :root {
-	--gap-body-top: 20px;
+	--gap-body-top: 7px; /* 上下は詰める（従来20pxの約1/3） */
 	--gap-body-right: 20px;
-	--gap-body-bottom: 20px;
+	--gap-body-bottom: 7px;
 	--gap-body-left: 20px;
 }
 
@@ -56,4 +56,85 @@
 /* 背景スライドショー自体は影を付けない（画像に影が乗ると濁るため打ち消す）。 */
 .MMM-R5 {
 	text-shadow: none;
+}
+
+/* ===== 上下バー：上=時計/月カレ/天気、下=今日の予定のみ ===== */
+/* 位置は region に。左右20px内側、上下は7pxに詰めてバーを画面端へ寄せる。 */
+.region.top.bar,
+.region.bottom.bar {
+	left: 10px;
+	right: 10px;
+	width: auto;
+}
+.region.top.bar { top: 7px; }
+.region.bottom.bar { bottom: 7px; }
+
+/* モジュールは region 直下の .container に入る（MM の構造）。共通プレートは
+ * バー直下の .container だけにかける（> で限定）。box-sizing 必須（右はみ出し防止）。 */
+.region.top.bar > .container,
+.region.bottom.bar > .container {
+	box-sizing: border-box;
+	width: 100%;
+	text-align: left;
+	/* バー共通プレート（1枚だけ） */
+	background: rgba(0, 0, 0, 0.32);
+	-webkit-backdrop-filter: blur(3px);
+	backdrop-filter: blur(3px);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 14px;
+	padding: 10px 22px;
+}
+
+/* 上バーはグリッド：時計｜月カレ｜天気列（現在→予報を縦2段）。 */
+.region.top.bar > .container {
+	display: grid;
+	grid-template-columns: max-content 1fr max-content;
+	grid-template-rows: auto auto;
+	column-gap: 24px;
+	row-gap: 2px;
+	align-items: start;
+}
+.region.top.bar .clock { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+.region.top.bar .MMM-MonthCal { grid-column: 2; grid-row: 1 / 3; justify-self: center; align-self: center; }
+/* 天気列：現在(気温)を上段、5日予報を下段に。右寄せ。 */
+.region.top.bar .weather-current { grid-column: 3; grid-row: 1; justify-self: end; align-self: end; }
+.region.top.bar .weather-forecast { grid-column: 3; grid-row: 2; justify-self: end; align-self: start; }
+
+/* バー内の各モジュールは個別プレートを消す（白文字化の r5-plate ルールは残す）。 */
+.region.top.bar .module.r5-plate,
+.region.bottom.bar .module.r5-plate {
+	background: none;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+	border: none;
+	border-radius: 0;
+	padding: 0;
+	margin: 0;
+}
+
+/* 空リージョンのコンテナ（中身ゼロ）は隠す。プレート背景だけの空パネル防止。 */
+.region.top .container.hidden,
+.region.bottom .container.hidden {
+	display: none;
+}
+
+/* ===== 下部：今日の予定(OshiCal)のみ。列優先グリッドで高さを抑える。 ===== */
+/* OshiCal はバー全幅を使う（列数・行数は OshiCal 側が config.columns で制御）。 */
+.region.bottom.bar .MMM-OshiCal {
+	width: 100%;
+}
+
+/* 打ち切った「＋他 N 件」行。 */
+.MMM-OshiCal .oc-more {
+	opacity: 0.8;
+	font-style: italic;
+}
+
+/* 上バーの時計を大きく（左の空きスペースを埋める）。 */
+.region.top.bar .clock .time {
+	font-size: 3.2rem;
+	line-height: 1.02;
+}
+.region.top.bar .clock .date {
+	font-size: 1.2rem;
 }

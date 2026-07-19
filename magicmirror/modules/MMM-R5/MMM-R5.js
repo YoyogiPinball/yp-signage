@@ -24,6 +24,19 @@ Module.register("MMM-R5", {
 		this.timer = null;
 		this.requestImages();
 		setInterval(() => this.requestImages(), this.config.refreshInterval);
+		// ←/→ で手動送り（1枚戻る/進む）。手動操作後もオート巡回は継続する。
+		document.addEventListener("keydown", (e) => {
+			if (e.key === "ArrowRight") this.step(1);
+			else if (e.key === "ArrowLeft") this.step(-1);
+		});
+	},
+
+	// 手動で dir 枚ぶん送る（+1=次 / -1=前）。オートのタイマーもリセットして継続。
+	step(dir) {
+		if (this.images.length === 0) return;
+		this.index = (this.index + dir + this.images.length) % this.images.length;
+		this.updateDom(this.config.fadeSpeed);
+		this.scheduleNext();
 	},
 
 	// node_helper に最新の画像一覧を要求する。
@@ -73,6 +86,13 @@ Module.register("MMM-R5", {
 			wrapper.textContent = "画像なし (~/signage/r5)";
 			return wrapper;
 		}
+		// ぼかし拡大背景: 同じ画像を cover＋ぼかしで背面に敷き、レターボックスの帯を
+		// 写真の延長（ぼかし）で埋める。前面の contain 画像は切れずに全体表示のまま。
+		const bg = document.createElement("img");
+		bg.className = "mmm-r5-bg";
+		bg.src = this.images[this.index];
+		wrapper.appendChild(bg);
+
 		const img = document.createElement("img");
 		img.className = "mmm-r5-img";
 		// 読み込み失敗（0バイト・壊れ画像・非対応形式）は 60秒待たず即次へ送る。白画面で止めない。

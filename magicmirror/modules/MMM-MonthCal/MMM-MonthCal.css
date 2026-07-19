@@ -2,6 +2,14 @@
  * 白文字・プレート・画面端寄せは custom.css（.r5-plate）側で共通適用。
  * ここはグリッド固有（曜日の色・今日の丸）を持つ。土=青／日祝=赤。
  */
+/* 今月＋来月を横並び。 */
+.MMM-MonthCal .mc {
+	display: flex;
+	flex-direction: row;
+	gap: 18px;
+	align-items: flex-start;
+}
+
 .MMM-MonthCal .mc-cap {
 	font-weight: 700;
 	font-size: 15px;

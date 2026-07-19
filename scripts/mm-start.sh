@@ -5,6 +5,9 @@
 #   セッションごと SIGTERM するため、起動直後に殺されていた。systemd-run --user で
 #   ssh セッションの scope から切り離し、user manager 配下で常駐させる。
 # 使い方: bash ~/run/mm-start.sh   （母艦からは ssh x13 'bash ~/run/mm-start.sh'）
+# 表示切替（任意）: 呼び出し側の環境変数を MM へ引き渡す。
+#   X13_COLS=3|4（予定の列数）   X13_OSHI_NOW=2026-07-19T06:00（デバッグ現在時刻）
+#   例: X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
 set -e
 
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
@@ -26,6 +29,8 @@ systemd-run --user \
 	--setenv=DISPLAY="$DISPLAY_ID" \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
+	--setenv=X13_COLS="${X13_COLS:-}" \
+	--setenv=X13_OSHI_NOW="${X13_OSHI_NOW:-}" \
 	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --disable-http-cache
 
 echo "MagicMirror起動（user service: magicmirror）"
