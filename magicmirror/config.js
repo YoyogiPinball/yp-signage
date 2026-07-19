@@ -67,6 +67,50 @@ let config = {
 				dateFormat: "YYYY/MM/DD（dd）",
 			},
 		},
+		// 天気（左上）：OWM 無料APIキー(secrets.owmApiKey)があるときだけ有効化。
+		// current=現在の天気/気温、forecast=/forecast(無料の 5day/3h)を日集約した5日予報。
+		// 「先24hを毎時」は無料枠では出せないため、現在＋5日の"概ねの天気"に留める（合意 2026-07-19）。
+		// 地域は secrets.weatherLat / weatherLon で上書き可。未設定は東京(35.681,139.767)。
+		...(secrets.owmApiKey
+			? [
+					{
+						module: "weather",
+						position: "top_left",
+						classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
+						config: {
+							weatherProvider: "openweathermap",
+							// 既定は 3.0(/onecall・有料サブスク別) で無料キーだと loading 固定になる。
+							// 無料の v2.5 エンドポイントを明示する。
+							apiVersion: "2.5",
+							weatherEndpoint: "/weather", // 現在の天気(v2.5・無料)
+							type: "current",
+							onlyTemp: true, // 体感温度・日の出・風・湿度を出さず、アイコン＋気温だけにする
+							lat: secrets.weatherLat ?? 35.681,
+							lon: secrets.weatherLon ?? 139.767,
+							apiKey: secrets.owmApiKey,
+						},
+					},
+					{
+						module: "weather",
+						position: "top_left",
+						header: "5日間予報",
+						classes: "r5-plate",
+						config: {
+							weatherProvider: "openweathermap",
+							apiVersion: "2.5", // 無料枠。既定 3.0(/onecall) を避ける
+							weatherEndpoint: "/forecast", // 5day/3h(v2.5・無料)を日ごとに集約
+							type: "forecast",
+							lat: secrets.weatherLat ?? 35.681,
+							lon: secrets.weatherLon ?? 139.767,
+							apiKey: secrets.owmApiKey,
+							maxNumberOfDays: 5,
+							fade: false,
+							absoluteDates: true, // 「今日/明日」表記をやめ、常に日付書式で出す
+							forecastDateFormat: "D（dd）", // 例: 19（日）。D=日にち, dd=1文字曜日(ja)
+						},
+					},
+			  ]
+			: []),
 		// カレンダー：secrets.calendarIcs があるときだけ有効化（URL未設定なら丸ごと出さない）
 		...(secrets.calendarIcs
 			? [
@@ -84,6 +128,12 @@ let config = {
 					},
 			  ]
 			: []),
+		// 月カレンダー（右下）：予定は出さず当月グリッドのみ。土=青／日祝=赤。自作・依存なし。
+		{
+			module: "MMM-MonthCal",
+			position: "bottom_right",
+			classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
+		},
 	],
 };
 

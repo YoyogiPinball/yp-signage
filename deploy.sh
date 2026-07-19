@@ -14,7 +14,7 @@ scp -q "$D/canvas.sh" "$D/signage-start.sh" "$D/signage-stop.sh" "$D/signage-win
 ssh "$HOST" 'chmod +x ~/r5.sh ~/run/*.sh'
 
 # --- MagicMirror 設定・モジュール ---
-ssh "$HOST" 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/MMM-R5 ~/MagicMirror/modules/MMM-OshiCal ~/MagicMirror/css'
+ssh "$HOST" 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/MMM-R5 ~/MagicMirror/modules/MMM-OshiCal ~/MagicMirror/modules/MMM-MonthCal ~/MagicMirror/css'
 scp -q "$MM/config.js" "$HOST":'~/MagicMirror/config/config.js'
 scp -q "$MM/css/custom.css" "$HOST":'~/MagicMirror/css/custom.css'
 if [ -f "$MM/secrets.js" ]; then
@@ -24,5 +24,6 @@ else
 fi
 scp -q "$MM/modules/MMM-R5/MMM-R5.js" "$MM/modules/MMM-R5/node_helper.js" "$MM/modules/MMM-R5/MMM-R5.css" "$HOST":'~/MagicMirror/modules/MMM-R5/'
 scp -q "$MM/modules/MMM-OshiCal/MMM-OshiCal.js" "$MM/modules/MMM-OshiCal/node_helper.js" "$MM/modules/MMM-OshiCal/MMM-OshiCal.css" "$HOST":'~/MagicMirror/modules/MMM-OshiCal/'
+scp -q "$MM/modules/MMM-MonthCal/MMM-MonthCal.js" "$MM/modules/MMM-MonthCal/MMM-MonthCal.css" "$MM/modules/MMM-MonthCal/holidays.js" "$HOST":'~/MagicMirror/modules/MMM-MonthCal/'
 
 echo "X13へ配布完了"

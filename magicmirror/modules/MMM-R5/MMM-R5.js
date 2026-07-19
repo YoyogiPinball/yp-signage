@@ -75,6 +75,14 @@ Module.register("MMM-R5", {
 		}
 		const img = document.createElement("img");
 		img.className = "mmm-r5-img";
+		// 読み込み失敗（0バイト・壊れ画像・非対応形式）は 60秒待たず即次へ送る。白画面で止めない。
+		img.onerror = () => {
+			if (this.images.length > 1) {
+				this.index = (this.index + 1) % this.images.length;
+				this.updateDom(0);
+				this.scheduleNext();
+			}
+		};
 		img.src = this.images[this.index];
 		wrapper.appendChild(img);
 		return wrapper;

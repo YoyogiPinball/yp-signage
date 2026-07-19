@@ -49,3 +49,12 @@
 .MMM-OshiCal .oc-empty {
 	font-size: 12px;
 }
+
+/* 配信中と思われる予定（開始済み・今と同じ時間帯）をオレンジで強調する。 */
+.MMM-OshiCal .oc-badge.oc-live {
+	background: rgba(255, 138, 0, 0.9);
+}
+.MMM-OshiCal .oc-live .oc-who {
+	/* custom.css の .module.r5-plate * { color:#fff !important } に勝たせる。 */
+	color: #ffb454 !important;
+}

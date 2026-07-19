@@ -1,0 +1,47 @@
+/* MMM-MonthCal — 月グリッドのスタイル。
+ * 白文字・プレート・画面端寄せは custom.css（.r5-plate）側で共通適用。
+ * ここはグリッド固有（曜日の色・今日の丸）を持つ。土=青／日祝=赤。
+ */
+.MMM-MonthCal .mc-cap {
+	font-weight: 700;
+	font-size: 15px;
+	text-align: center;
+	margin-bottom: 4px;
+	text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 2px #000;
+}
+
+.MMM-MonthCal .mc-table {
+	border-collapse: collapse;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums; /* 日にちの桁を揃える */
+}
+
+.MMM-MonthCal .mc-table th,
+.MMM-MonthCal .mc-table td {
+	width: 28px;
+	height: 26px;
+	text-align: center;
+	color: #fff;
+	/* 背景の上でも読めるソフト黒フチ。 */
+	text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 2px #000;
+}
+
+.MMM-MonthCal .mc-table th {
+	font-weight: 700;
+	font-size: 12px;
+}
+
+/* 土曜=青、日曜・祝日=赤。
+ * custom.css の `.module.r5-plate * { color:#fff !important }`（時計の文字を白統一する
+ * ルール）が全子孫を白に強制するため、!important で明示的に勝たせる必要がある。 */
+.MMM-MonthCal .mc-table td.mc-sat,
+.MMM-MonthCal .mc-table th.mc-sat { color: #7fb2ff !important; }
+.MMM-MonthCal .mc-table td.mc-red,
+.MMM-MonthCal .mc-table th.mc-red { color: #ff8a8a !important; }
+
+/* 今日を丸ハイライト。文字色（赤/青/白）はそのまま活かす。 */
+.MMM-MonthCal .mc-today {
+	background: rgba(255, 255, 255, 0.22);
+	border-radius: 50%;
+	font-weight: 700;
+}

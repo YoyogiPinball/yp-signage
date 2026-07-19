@@ -55,11 +55,11 @@ Module.register("MMM-OshiCal", {
 		list.className = "oc-list";
 		this.events.forEach((ev) => {
 			const badge = document.createElement("div");
-			badge.className = "oc-badge";
+			badge.className = ev.live ? "oc-badge oc-live" : "oc-badge";
 			badge.textContent = ev.time;
 
 			const body = document.createElement("div");
-			body.className = "oc-body";
+			body.className = ev.live ? "oc-body oc-live" : "oc-body";
 			const who = document.createElement("div");
 			who.className = "oc-who";
 			who.textContent = ev.name || "";

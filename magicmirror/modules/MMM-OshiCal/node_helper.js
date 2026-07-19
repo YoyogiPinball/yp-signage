@@ -32,6 +32,9 @@ module.exports = NodeHelper.create({
 		const now = Date.now();
 		const nowJst = new Date(now + JST_OFFSET);
 		const todayKey = `${nowJst.getUTCFullYear()}-${nowJst.getUTCMonth() + 1}-${nowJst.getUTCDate()}`;
+		const nowHour = nowJst.getUTCHours(); // 現在の「時」(JST)。同じ時間帯の予定を配信中とみなす判定に使う。
+		// 現在の「時」の頭(HH:00:00)を UTC ミリ秒で。分秒ミリ秒を落とすだけ（時の頭は JST/UTC で同一瞬間）。
+		const hourStartMs = now - ((nowJst.getUTCMinutes() * 60 + nowJst.getUTCSeconds()) * 1000 + nowJst.getUTCMilliseconds());
 
 		const timed = [];
 		const allday = [];
@@ -40,7 +43,7 @@ module.exports = NodeHelper.create({
 		for (const line of lines) {
 			if (line === "BEGIN:VEVENT") { cur = {}; continue; }
 			if (line === "END:VEVENT") {
-				if (cur) this.classify(cur, todayKey, now, timed, allday);
+				if (cur) this.classify(cur, todayKey, now, hourStartMs, nowHour, timed, allday);
 				cur = null;
 				continue;
 			}
@@ -52,15 +55,14 @@ module.exports = NodeHelper.create({
 			const key = keyPart.split(";")[0];
 			if (key === "SUMMARY") cur.summary = this.unescapeText(val);
 			else if (key === "DTSTART") { cur.dtstart = val; cur.startParams = keyPart; }
-			else if (key === "DTEND") cur.dtend = val;
 		}
 
 		timed.sort((a, b) => a.ms - b.ms);
 		// 終日は時刻付きの後ろに置く（モックアップの並びに合わせる）。
-		return timed.concat(allday).slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title }));
+		return timed.concat(allday).slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title, live: !!e.live }));
 	},
 
-	classify(ev, todayKey, now, timed, allday) {
+	classify(ev, todayKey, now, hourStartMs, nowHour, timed, allday) {
 		if (!ev.dtstart) return;
 		const { name, title } = this.splitSummary(ev.summary || "");
 
@@ -76,16 +78,19 @@ module.exports = NodeHelper.create({
 		// 時刻付きイベント。
 		const startMs = this.toMs(ev.dtstart);
 		if (startMs === null) return;
-		const endMs = this.toMs(ev.dtend) ?? startMs + 60 * 60 * 1000; // DTEND 無しは +1h
 
 		const startJst = new Date(startMs + JST_OFFSET);
 		const key = `${startJst.getUTCFullYear()}-${startJst.getUTCMonth() + 1}-${startJst.getUTCDate()}`;
 
-		// 今日 かつ まだ終わっていない（進行中/これから）だけ拾う。
-		if (key === todayKey && endMs > now) {
+		// 表示条件: 今日 かつ 開始が「現在の時間帯の頭」以降（＝開始の"時" >= 現在の"時"）。
+		// 例: 19:30 なら 19:00 以降に始まる予定だけ表示。18時台は 19:00 になった時点で落ちる。
+		// 終了時刻は見ない（DTEND の有無に振り回されないため）。
+		if (key === todayKey && startMs >= hourStartMs) {
 			const hh = String(startJst.getUTCHours()).padStart(2, "0");
 			const mm = String(startJst.getUTCMinutes()).padStart(2, "0");
-			timed.push({ time: `${hh}:${mm}`, name, title, ms: startMs });
+			// 配信中と思われる: すでに始まっていて（開始 ≤ 今）、今と同じ時間帯（同じ"時"）。
+			const live = startMs <= now && startJst.getUTCHours() === nowHour;
+			timed.push({ time: `${hh}:${mm}`, name, title, ms: startMs, live });
 		}
 	},
 
