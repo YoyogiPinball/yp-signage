@@ -24,9 +24,10 @@ let config = {
 	timeFormat: 24,
 	units: "metric",
 
-	// Electron 表示オプション：外部モニタ DP-2（縦1080x1920・原点+1920+0）へ全画面表示
+	// Electron 表示オプション：外部モニタ DP-2（縦1080x1920）へ全画面表示。
+	// DP-2 は monitors.xml で論理原点(0,0)固定にしたので x:0。蓋の開閉で位置がぶれない。
 	electronOptions: {
-		x: 1920,
+		x: 0,
 		y: 0,
 		width: 1080,
 		height: 1920,

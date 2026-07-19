@@ -1,0 +1,80 @@
+<monitors version="2">
+  <!-- X13 サイネージ用ディスプレイ構成（GNOME/Mutter 保存先: ~/.config/monitors.xml）
+       方針: DP-2(外部・縦)を常に論理原点(0,0)に固定し、蓋の開閉で位置がぶれないようにする。
+       これで蓋を閉じて eDP-1 が切れても DP-2 は縦のまま、MagicMirror(窓 x:0)も載り続ける。
+       ※ deploy.sh では自動配布しない（GNOME が随時上書きするファイルのため、適用は手動）。 -->
+
+  <!-- 蓋オープン: DP-2(縦) を原点、eDP-1(横・作業用/primary) をその右へ -->
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <transform>
+        <rotation>right</rotation>
+        <flipped>no</flipped>
+      </transform>
+      <monitor>
+        <monitorspec>
+          <connector>DP-2</connector>
+          <vendor>GSM</vendor>
+          <product>22MP56</product>
+          <serial>0x0005cc60</serial>
+        </monitorspec>
+        <mode>
+          <width>1920</width>
+          <height>1080</height>
+          <rate>60.000</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+    <logicalmonitor>
+      <x>1080</x>
+      <y>0</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>eDP-1</connector>
+          <vendor>BOE</vendor>
+          <product>0x07eb</product>
+          <serial>0x00000000</serial>
+        </monitorspec>
+        <mode>
+          <width>1920</width>
+          <height>1080</height>
+          <rate>60.000</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+  </configuration>
+
+  <!-- 蓋クローズ: DP-2(縦) 単独。原点は上と同じ(0,0)なので MagicMirror の窓位置がぶれない -->
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <transform>
+        <rotation>right</rotation>
+        <flipped>no</flipped>
+      </transform>
+      <monitor>
+        <monitorspec>
+          <connector>DP-2</connector>
+          <vendor>GSM</vendor>
+          <product>22MP56</product>
+          <serial>0x0005cc60</serial>
+        </monitorspec>
+        <mode>
+          <width>1920</width>
+          <height>1080</height>
+          <rate>60.000</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+  </configuration>
+</monitors>
