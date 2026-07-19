@@ -48,7 +48,7 @@ let config = {
 		},
 		{
 			module: "clock",
-			position: "top_left",
+			position: "top_right",
 			classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 			config: {
 				timezone: "Asia/Tokyo",
@@ -82,11 +82,6 @@ let config = {
 					},
 			  ]
 			: []),
-		{
-			module: "compliments",
-			position: "lower_third",
-			classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
-		},
 	],
 };
 

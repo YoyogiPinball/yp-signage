@@ -8,14 +8,24 @@
 	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
 
-/* config で classes: "r5-plate" を付けたモジュール（時計・カレンダー・compliments）に
- * 半透明の暗いプレートを敷き、その背後（＝スライドショー画像）だけをぼかす。 */
+/* config で classes: "r5-plate" を付けたモジュール（時計・カレンダー）に
+ * 半透明の暗いプレートを敷き、その背後（＝スライドショー画像）だけをぼかす。
+ * 暗さは控えめ（透明度高め）。ぼかしで可読性を確保する。 */
 .module.r5-plate {
-	background: rgba(0, 0, 0, 0.42);
+	background: rgba(0, 0, 0, 0.15);
 	-webkit-backdrop-filter: blur(8px);
 	backdrop-filter: blur(8px);
 	border-radius: 14px;
 	padding: 12px 18px;
+}
+
+/* プレート内（時計・カレンダー）の文字を全部白に統一する。
+ * MM 既定は date=normal(灰) / seconds=dimmed(暗灰) / カレンダーも灰系で、写真の上だと
+ * hh:mm(bright=白)だけ浮いて他が暗く見える。まとめて #fff に揃えて可読性を上げる。 */
+.module.r5-plate,
+.module.r5-plate * {
+	color: #fff !important;
+	opacity: 1 !important;
 }
 
 /* 背景スライドショー自体は影を付けない（画像に影が乗ると濁るため打ち消す）。 */
