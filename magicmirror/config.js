@@ -3,8 +3,15 @@
  */
 
 // 秘密情報(ICS URL等)は secrets.js から読む。無ければ空扱いにして起動は止めない。
+// 注意: MM は config.js を require せず fs.readFileSync+eval で読む。その中の
+// require("./secrets.js") は config ディレクトリ基準では解決されない（MM の js/ 基準に
+// なって失敗する）。そのため MM が用意する global.root_path から絶対パスで読む。
+// ローカルの `node -e require("./config.js")` テスト時は root_path が無いので相対にフォールバック。
 const secrets = (() => {
 	try {
+		if (typeof global !== "undefined" && global.root_path) {
+			return require(`${global.root_path}/config/secrets.js`);
+		}
 		return require("./secrets.js");
 	} catch (e) {
 		return {};
@@ -17,6 +24,9 @@ let config = {
 	basePath: "/",
 	ipWhitelist: ["127.0.0.1", "::ffff:127.0.0.1", "::1"],
 	useHttps: false,
+
+	// custom.css の読み込み先を明示する。既定は config/custom.css だが、正本は css/ に置くため上書き。
+	customCss: "css/custom.css",
 
 	language: "ja",
 	locale: "ja-JP",
@@ -61,23 +71,15 @@ let config = {
 		...(secrets.calendarIcs
 			? [
 					{
-						module: "calendar",
-						position: "top_left",
-						header: "今日の予定",
+						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
+						// 作れないため、同じ ICS を node_helper で取得・整形して描画する。
+						module: "MMM-OshiCal",
+						position: "bottom_left",
 						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 						config: {
-							// 今日の、これからの分だけ（feedback 2026-07-18）。
-							// calendar は既定で過去イベントを出さないので、対象日数を1日に絞れば「今日の残り」になる。
-							maximumNumberOfDays: 1,
-							maximumEntries: 10,
-							fetchInterval: 5 * 60 * 1000, // 5分ごとに更新
-							timeFormat: "absolute", // 「15:00」のような絶対時刻表示
-							calendars: [
-								{
-									url: secrets.calendarIcs,
-									symbol: "calendar",
-								},
-							],
+							icsUrl: secrets.calendarIcs,
+							maxEntries: 12,
+							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
 						},
 					},
 			  ]

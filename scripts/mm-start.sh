@@ -26,7 +26,7 @@ systemd-run --user \
 	--setenv=DISPLAY="$DISPLAY_ID" \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
-	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11
+	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --disable-http-cache
 
 echo "MagicMirror起動（user service: magicmirror）"
 echo "  ログ:   journalctl --user -u magicmirror -f"

@@ -1,0 +1,51 @@
+/* MMM-OshiCal — 「今日の予定」2段カードのスタイル。
+ * 白文字・プレート・画面端寄せは custom.css（.r5-plate / :root）側で共通適用。
+ * ここはカード固有のレイアウト（時刻列の縦揃え・2段・読みやすいフチ）を持つ。
+ */
+.MMM-OshiCal .oc-list {
+	display: grid;
+	grid-template-columns: auto 1fr; /* 時刻列 | 内容列。auto が全行で最大幅に揃う＝縦揃え */
+	column-gap: 9px;
+	row-gap: 7px;
+	font-size: 14px;
+	-webkit-font-smoothing: antialiased;
+}
+
+.MMM-OshiCal .oc-badge {
+	align-self: start;
+	font-weight: 700;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums; /* 時刻の桁を揃える */
+	white-space: nowrap;
+	background: rgba(255, 255, 255, 0.16);
+	border-radius: 5px;
+	padding: 2px 6px;
+	/* 時刻も本文と同じソフト黒フチで読みやすく。 */
+	text-shadow:
+		0 0 2px #000,
+		0 0 2px #000,
+		0 1px 2px #000;
+}
+
+.MMM-OshiCal .oc-who {
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.MMM-OshiCal .oc-sub {
+	line-height: 1.25;
+}
+
+/* 可読性: ぼかしを効かせたソフト黒フチ（ハードなオフセットはジャギるので使わない）。 */
+.MMM-OshiCal .oc-who,
+.MMM-OshiCal .oc-sub,
+.MMM-OshiCal .oc-empty {
+	text-shadow:
+		0 0 2px #000,
+		0 0 2px #000,
+		0 1px 2px #000;
+}
+
+.MMM-OshiCal .oc-empty {
+	font-size: 12px;
+}

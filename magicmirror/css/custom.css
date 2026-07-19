@@ -3,6 +3,15 @@
  * 目的: 背景の全画面スライドショー(MMM-R5)の上に乗る文字を読みやすくする。
  */
 
+/* 画面端からの余白（既定60px）を詰めて、各パネルを外側（角）へ寄せる。
+ * フルスクリーン背景(MMM-R5)は別処理で全面を保つので影響しない。 */
+:root {
+	--gap-body-top: 20px;
+	--gap-body-right: 20px;
+	--gap-body-bottom: 20px;
+	--gap-body-left: 20px;
+}
+
 /* 全体に薄い影を敷いて、明るい写真の上でも輪郭を保つ。 */
 .module {
 	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
@@ -13,8 +22,8 @@
  * 暗さは控えめ（透明度高め）。ぼかしで可読性を確保する。 */
 .module.r5-plate {
 	background: rgba(0, 0, 0, 0.15);
-	-webkit-backdrop-filter: blur(8px);
-	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(3px);
+	backdrop-filter: blur(3px);
 	border-radius: 14px;
 	padding: 12px 18px;
 }
@@ -26,6 +35,22 @@
 .module.r5-plate * {
 	color: #fff !important;
 	opacity: 1 !important;
+}
+
+/* 「今日の予定」パネルは自作モジュール MMM-OshiCal（案C=2段カード）。
+ * カード自体の並び・フチ・サイズは modules/MMM-OshiCal/MMM-OshiCal.css 側。
+ * ここでは共通プレート(r5-plate)の余白だけ、パネルに合わせて実寸で詰める。 */
+.module.MMM-OshiCal.r5-plate {
+	padding: 10px 15px;
+}
+/* モジュール見出し「今日の予定」を少し際立たせる。 */
+.module.r5-plate .module-header {
+	font-size: 15px;
+	letter-spacing: 0.08em;
+	opacity: 0.9;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+	padding-bottom: 4px;
+	margin-bottom: 6px;
 }
 
 /* 背景スライドショー自体は影を付けない（画像に影が乗ると濁るため打ち消す）。 */
