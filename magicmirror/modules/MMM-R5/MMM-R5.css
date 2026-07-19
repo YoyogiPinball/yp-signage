@@ -1,0 +1,17 @@
+/* MMM-R5 — 全画面背景スライドショー用スタイル。
+ * config で position: "fullscreen_below" に置く前提。画面いっぱいに1枚を表示する。
+ * object-fit: contain で切れないように収める（背景は黒でレターボックス）。
+ */
+.mmm-r5 {
+	width: 100vw;
+	height: 100vh;
+	background: #000;
+	overflow: hidden;
+}
+
+.mmm-r5-img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	display: block;
+}

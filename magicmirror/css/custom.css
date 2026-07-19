@@ -1,0 +1,24 @@
+/* X13 サイネージ カスタムスタイル
+ * 配布先: ~/MagicMirror/css/custom.css（MM が自動で読み込む）
+ * 目的: 背景の全画面スライドショー(MMM-R5)の上に乗る文字を読みやすくする。
+ */
+
+/* 全体に薄い影を敷いて、明るい写真の上でも輪郭を保つ。 */
+.module {
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+/* config で classes: "r5-plate" を付けたモジュール（時計・カレンダー・compliments）に
+ * 半透明の暗いプレートを敷き、その背後（＝スライドショー画像）だけをぼかす。 */
+.module.r5-plate {
+	background: rgba(0, 0, 0, 0.42);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	border-radius: 14px;
+	padding: 12px 18px;
+}
+
+/* 背景スライドショー自体は影を付けない（画像に影が乗ると濁るため打ち消す）。 */
+.MMM-R5 {
+	text-shadow: none;
+}
