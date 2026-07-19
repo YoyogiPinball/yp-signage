@@ -1,14 +1,34 @@
 #!/bin/bash
-# MagicMirror 起動（XWayland経由でX13画面に表示・バックグラウンド）
-# 使い方: bash ~/run/mm-start.sh
-export DISPLAY="${DISPLAY:-:0}"
-export XAUTHORITY="${XAUTHORITY:-$(ls /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1)}"
-# Electron を X11(XWayland) に強制固定（既定だと Wayland を掴んで失敗するため）。
-# ヒントでは効かないので switch --ozone-platform=x11 を electron へ直接渡す。
-unset WAYLAND_DISPLAY
-cd "$HOME/MagicMirror" || { echo "MagicMirror未導入"; exit 1; }
-pkill -f "js/electron.js" 2>/dev/null
-sleep 2
-nohup ./node_modules/.bin/electron js/electron.js --ozone-platform=x11 >/tmp/mm.log 2>&1 &
-disown
-echo "MagicMirror起動: ログ cat /tmp/mm.log / 止める bash ~/run/mm-stop.sh"
+# MagicMirror 起動（X13 の GNOME/XWayland 画面に表示）。
+# ssh 越しに起動しても死なないよう、user の transient service として起動する。
+#   従来の nohup 起動は、ssh セッション終了時に logind(KillUserProcesses=yes) が
+#   セッションごと SIGTERM するため、起動直後に殺されていた。systemd-run --user で
+#   ssh セッションの scope から切り離し、user manager 配下で常駐させる。
+# 使い方: bash ~/run/mm-start.sh   （母艦からは ssh x13 'bash ~/run/mm-start.sh'）
+set -e
+
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+DISPLAY_ID="${DISPLAY:-:0}"
+XAUTH="$(ls /run/user/"$(id -u)"/.mutter-Xwaylandauth.* 2>/dev/null | head -1)"
+
+# 既存を停止（サービス版・旧nohup版どちらも）
+systemctl --user stop magicmirror.service 2>/dev/null || true
+systemctl --user reset-failed magicmirror.service 2>/dev/null || true
+pkill -f "js/electron.js" 2>/dev/null || true
+sleep 1
+
+# Electron を X11(XWayland) 固定で常駐起動。WAYLAND_DISPLAY を空にして Wayland を掴ませない。
+systemd-run --user \
+	--unit=magicmirror \
+	--description="MagicMirror signage (X13)" \
+	--working-directory="$HOME/MagicMirror" \
+	--setenv=DISPLAY="$DISPLAY_ID" \
+	--setenv=XAUTHORITY="$XAUTH" \
+	--setenv=WAYLAND_DISPLAY= \
+	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11
+
+echo "MagicMirror起動（user service: magicmirror）"
+echo "  ログ:   journalctl --user -u magicmirror -f"
+echo "  状態:   systemctl --user status magicmirror"
+echo "  止める: bash ~/run/mm-stop.sh"

@@ -9,7 +9,8 @@ MM="$ROOT/magicmirror"
 # --- scripts（サイネージ再生系） ---
 scp -q "$D/r5.sh" "$HOST":'~/r5.sh'
 ssh "$HOST" 'mkdir -p ~/run'
-scp -q "$D/canvas.sh" "$D/signage-start.sh" "$D/signage-stop.sh" "$D/signage-window.sh" "$D/README.md" "$HOST":'~/run/'
+scp -q "$D/canvas.sh" "$D/signage-start.sh" "$D/signage-stop.sh" "$D/signage-window.sh" \
+	"$D/mm-start.sh" "$D/mm-stop.sh" "$D/mm-fix-sandbox.sh" "$D/README.md" "$HOST":'~/run/'
 ssh "$HOST" 'chmod +x ~/r5.sh ~/run/*.sh'
 
 # --- MagicMirror 設定・モジュール ---
