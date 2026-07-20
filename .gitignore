@@ -9,4 +9,4 @@
 # 秘密情報（APIキー・OAuth等はここへ。config本体には直書きしない方針）
 secrets/
 *.secret
-magicmirror/secrets.js
+secrets.js
