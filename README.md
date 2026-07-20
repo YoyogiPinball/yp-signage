@@ -1,4 +1,4 @@
-> 最終更新: 2026-07-20（Mon）14:39
+> 最終更新: 2026-07-20（Mon）19:28
 
 # x13 — ThinkPad X13 常時稼働サイネージ/サーバー
 
@@ -15,6 +15,7 @@ X13 上で動くものは用途ごとにトップレベルのディレクトリ�
 ```
 x13/
 ├── deploy.sh                  # WSL → X13 へ scp/ssh で配布。引数で用途を選ぶ
+├── sync-images.sh             # WSL → X13 へ画像を同期。1日1回 systemd timer が起動
 ├── yp-signage/                # 用途: サイネージ表示 (yoyogipinball signage)
 │   ├── magicmirror/
 │   │   ├── config.js          # MM 設定（モジュール構成、Electron 窓位置）
@@ -72,7 +73,7 @@ x13/
 - Ubuntu 26.04、GNOME (Wayland)、Node.js 24、npm
 - MagicMirror² v2.37 が `~/MagicMirror/` にインストール済み
 - `loginctl enable-linger <user>` 済み（ssh 切断後もユーザーサービスを維持）
-- サイネージ用画像を `~/signage/r5/` に配置
+- サイネージ用画像を `~/signage/slides/` 以下に配置（`sync-images.sh` が自動で置く。後述）
 
 ### secrets の準備
 
@@ -108,6 +109,59 @@ ssh x13 'journalctl --user -u magicmirror -f'
 `mm-start.sh` は `systemd-run --user` で transient service として起動する。
 ssh セッションの scope から切り離されるため、ssh を切っても MM は生き続ける。
 
+## 画像同期 (sync-images.sh)
+
+サイネージに映す画像の正本は Windows の `D:` にあり、X13 側はその鏡でしかない。
+`sync-images.sh` は WSL 上で動き、差分だけを X13 へ送る。元で消えた画像は X13 からも取り除く。
+
+```
+D:\photos\_SYNC\r5\                 →  X13: ~/signage/slides/r5/
+D:\...\tate\portrait\             →  X13: ~/signage/slides/tate/
+消えた画像                            →  X13: ~/signage/.trash/<日付>/<フォルダ名>/
+```
+
+同期ペアを増やすときは、スクリプト冒頭の `PAIRS` に「元パス|X13 側のフォルダ名」を1行足すだけでよい。
+
+```bash
+./sync-images.sh --dry-run   # 何が転送・削除されるかだけ表示する
+./sync-images.sh             # 実行
+```
+
+### 自動実行
+
+WSL の systemd user timer が毎日 4:00 に起動する。ユニットは WSL 側の `~/.config/systemd/user/` にあり、
+リポジトリには含まれない（X13 ではなく母艦の設定のため）。
+
+```bash
+systemctl --user list-timers x13-sync-images   # 次回実行時刻
+systemctl --user start x13-sync-images.service # 手動起動
+tail ~/.local/state/x13/sync-images.log        # 実行記録
+```
+
+`Persistent=true` を付けてあるので、4:00 に PC が落ちていても、次に WSL が起動した直後に取り戻す。
+cron だとその日の分は実行されずに飛ぶ。
+
+> **Note:** 実行記録の正本は `~/.local/state/x13/sync-images.log`。journal には開始と終了しか残らない。
+> この環境の journald は短命サービスの標準出力を取りこぼし、「一部の行だけ残る」記録になって
+> 誤読を招くため、意図的に stdout へ流していない（異常時のみ stderr に出す）。
+
+### rsync の判定条件
+
+意図して選んだオプションが2つある。どちらも外すと毎回 3GB を再転送する羽目になる。
+
+- **`-rt`（`-a` ではなく）** — `-a` に含まれる権限・所有者のコピーは、Windows のドライブ相手には意味がない。
+  WSL から見た `D:` のファイルは全部が同じ偽の権限値で、それを Linux 側へ持ち込むと毎回「権限が違う」と判定される。
+- **`--size-only`** — サイズが同じなら同一とみなす。過去に手動コピーした約1,800枚は更新時刻が壊れており、
+  時刻で比較すると中身が同じファイルを毎晩送り直すことになる。
+  引き換えに「バイト数が同一の別画像への差し替え」は検知できないが、画像は追加・削除されるもので
+  中身が書き換わるものではないため実害はない。
+
+初回に `--size-only` で流した時点で 1,806 枚の時刻が**データ転送なしで**修復され、以降の実行は3秒・転送ゼロで終わる。
+
+> **Warning:** 退避先の `.trash/` は必ず `slides/` の**外**に置くこと。
+> 中に置くと MMM-R5 の再帰スキャンがゴミ箱の画像まで拾い、消したはずの画像がスライドショーに出続ける。
+> 30日を超えた退避世代はスクリプト末尾で自動削除する。
+
 ## MagicMirror モジュール
 
 config.js で3つのモジュールを配置している。
@@ -120,10 +174,18 @@ config.js で3つのモジュールを配置している。
 ### MMM-R5 (自作: 背景スライドショー)
 
 `position: "fullscreen_below"` で画面全体に画像を敷く。
-node_helper が `~/signage/r5` の画像ファイルをスキャンし、Express の静的ルート `/MMM-R5/images` で配信する。
+node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静的ルート `/MMM-R5/images` で配信する。
+`slides/r5/`・`slides/tate/` のようにフォルダを分けて置けば、すべてが1本の再生リストにまとまる。
+フォルダを増やしても設定変更は要らない。
 フロント側は URL 一覧を受け取り、60秒ごとにフェード切替（1200ms）でシャッフル巡回する。
 
 対応拡張子: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`
+
+`.` で始まるフォルダはスキャン対象から外す。同期元に紛れている Syncthing の管理フォルダ（`.stversions` 等）を拾わないため。
+
+> **Note:** 再帰スキャンでは画像名が `r5/foo.png` のようにスラッシュを含む。
+> URL 化するときは `encodeURIComponent()` を丸ごと掛けてはいけない。区切りの `/` まで `%2F` に変換され、
+> パスが壊れて画像が1枚も表示されなくなる。セグメントごとに符号化してから `/` で繋ぎ直すこと。
 
 ### MMM-OshiCal (自作: 今日の予定カード)
 

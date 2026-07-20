@@ -1,4 +1,4 @@
-/* MMM-R5 — ~/signage/r5 の画像を巡回表示する自作スライドショー。
+/* MMM-R5 — ~/signage/slides 以下の画像を巡回表示する自作スライドショー。
  * MMM-ImageSlideshow を参考にした最小実装。画像の実体は node_helper が
  * /MMM-R5/images で静的配信し、ここではその URL を順に差し替えて表示する。
  * フェードは MM 標準の updateDom(speed) に任せる（モジュール領域ごと淡く切替）。
@@ -6,7 +6,7 @@
  */
 Module.register("MMM-R5", {
 	defaults: {
-		imageDir: null, // null なら node_helper 側の既定 ~/signage/r5
+		imageDir: null, // null なら node_helper 側の既定 ~/signage/slides（サブフォルダも再帰で拾う）
 		slideInterval: 8000, // 1枚の表示時間(ms)
 		fadeSpeed: 1200, // 切替時のフェード時間(ms)
 		shuffle: true, // 表示順をシャッフルするか
@@ -83,7 +83,7 @@ Module.register("MMM-R5", {
 		wrapper.className = "mmm-r5";
 		if (this.images.length === 0) {
 			wrapper.className += " dimmed small";
-			wrapper.textContent = "画像なし (~/signage/r5)";
+			wrapper.textContent = "画像なし (~/signage/slides)";
 			return wrapper;
 		}
 		// ぼかし拡大背景: 同じ画像を cover＋ぼかしで背面に敷き、レターボックスの帯を
