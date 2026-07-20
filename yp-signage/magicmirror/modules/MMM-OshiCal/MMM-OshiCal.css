@@ -8,42 +8,42 @@
 	grid-auto-columns: 1fr; /* 各列を等幅に（配信名は…で省略） */
 	/* grid-template-rows は front が件数から算出して inline 指定する */
 	width: 100%;
-	column-gap: 24px;
-	row-gap: 6px;
-	font-size: 13px;
+	column-gap: 28px; /* ×1.15 */
+	row-gap: 0; /* 案B: 行は区切り線で分ける（gap ではなく border-bottom＋padding） */
+	font-size: 15px; /* ×1.15（13→15） */
 	-webkit-font-smoothing: antialiased;
 }
 
 /* 1件分のセル：時刻バッジ | 名前＋予定。
  * align-items: stretch で、時刻バッジを本文（名前＋予定の2行）の高さに合わせて伸ばす。 */
+/* 案B: 各行の左に時刻カラーの縦バー、下に薄い区切り線。padding で行間を作る。 */
 .MMM-OshiCal .oc-item {
 	display: grid;
 	grid-template-columns: auto 1fr;
-	column-gap: 8px;
-	align-items: stretch;
+	column-gap: 10px;
+	align-items: center;
 	min-width: 0;
+	padding: 6px 0 6px 10px;
+	border-left: 3px solid #7fd4cc;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
 .MMM-OshiCal .oc-body {
 	min-width: 0; /* 名前・予定の省略記号(…)を効かせるため */
 }
 
 .MMM-OshiCal .oc-badge {
-	/* 本文の高さいっぱいに伸ばし、時刻を縦中央に置く（2行の本文と高さを揃える）。 */
-	align-self: stretch;
+	/* 案B: 時刻はバッジをやめ、左アクセントと同じ青緑テキストに。
+	 * custom.css の `.module.r5-plate * { color:#fff !important }` に勝つため !important。 */
 	display: flex;
 	align-items: center;
-	justify-content: center;
 	font-weight: 700;
-	font-size: 13px;
+	font-size: 15px;
 	font-variant-numeric: tabular-nums; /* 時刻の桁を揃える */
 	white-space: nowrap;
-	background: rgba(255, 255, 255, 0.16);
-	border-radius: 5px;
-	padding: 2px 6px;
-	/* 時刻も本文と同じソフト黒フチで読みやすく。 */
+	color: #cfeeea !important;
 	text-shadow:
-		0 0 2px #000,
-		0 0 2px #000,
+		0 0 3px #000,
+		0 0 3px #000,
 		0 1px 2px #000;
 }
 
@@ -55,32 +55,41 @@
 	text-overflow: ellipsis;
 }
 
+/* 配信タイトルは従。半透明白＋細字で、主（配信者名＝不透明白の太字）と明度差をつける。
+ * custom.css の `.module.r5-plate * { opacity:1 !important }` が opacity を潰すため、
+ * opacity ではなく color の alpha で暗くする（こちらは潰されない）。!important で白統一に勝つ。 */
 .MMM-OshiCal .oc-sub {
 	line-height: 1.2;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	color: rgba(255, 255, 255, 0.7) !important;
+	font-weight: 400;
 }
 
-/* 可読性: ぼかしを効かせたソフト黒フチ（ハードなオフセットはジャギるので使わない）。 */
+/* 可読性: ぼかしを効かせたソフト黒フチ（案Bは背景プレートが薄いのでフチを強める）。 */
 .MMM-OshiCal .oc-who,
 .MMM-OshiCal .oc-sub,
 .MMM-OshiCal .oc-empty {
 	text-shadow:
-		0 0 2px #000,
-		0 0 2px #000,
+		0 0 3px #000,
+		0 0 3px #000,
 		0 1px 2px #000;
 }
 
 .MMM-OshiCal .oc-empty {
-	font-size: 12px;
+	font-size: 14px; /* ×1.15 */
 }
 
-/* 配信中と思われる予定（開始済み・今と同じ時間帯）をオレンジで強調する。 */
+/* 配信中と思われる予定（開始済み・今と同じ時間帯）をオレンジで強調する。
+ * 案B: バッジ背景は廃止したので、左バー・時刻テキスト・名前をオレンジに揃える。 */
+.MMM-OshiCal .oc-item.oc-live {
+	border-left-color: #ff9a3d;
+}
 .MMM-OshiCal .oc-badge.oc-live {
-	background: rgba(255, 138, 0, 0.9);
+	color: #ffb454 !important;
 }
 .MMM-OshiCal .oc-live .oc-who {
 	/* custom.css の .module.r5-plate * { color:#fff !important } に勝たせる。 */
-	color: #ffb454 !important;
+	color: #ffc38f !important;
 }

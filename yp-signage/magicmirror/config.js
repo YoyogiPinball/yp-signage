@@ -102,25 +102,10 @@ let config = {
 			position: "top_bar",
 			classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
 		},
-		// 天気＝上バー右：現在(今日の気温)を上、5日予報を下に縦積み（配置は custom.css のグリッド）。
-		// OWM 無料キーがある時だけ。weather-current / weather-forecast クラスで段を割り振る。
+		// 天気＝上バー右：5日予報のみ（現在の気温 weather-current は 2026-07-21 に非表示化）。
+		// OWM 無料キーがある時だけ。weather-forecast クラスで段を割り振る。
 		...(secrets.owmApiKey
 			? [
-					{
-						module: "weather",
-						position: "top_bar",
-						classes: "r5-plate weather-current",
-						config: {
-							weatherProvider: "openweathermap",
-							apiVersion: "2.5",
-							weatherEndpoint: "/weather", // 現在の天気(v2.5・無料)
-							type: "current",
-							onlyTemp: true, // アイコン＋気温だけ（体感・日の出・風・湿度は出さない）
-							lat: secrets.weatherLat ?? 35.681,
-							lon: secrets.weatherLon ?? 139.767,
-							apiKey: secrets.owmApiKey,
-						},
-					},
 					{
 						module: "weather",
 						position: "top_bar",

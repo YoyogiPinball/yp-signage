@@ -10,9 +10,10 @@
 	align-items: flex-start;
 }
 
+/* 文字サイズは一律 ×1.15（13→15 / 12→14 / 15→17）。セル寸法も同率で上げて窮屈を防ぐ。 */
 .MMM-MonthCal .mc-cap {
 	font-weight: 700;
-	font-size: 15px;
+	font-size: 17px;
 	text-align: center;
 	margin-bottom: 4px;
 	text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 2px #000;
@@ -20,14 +21,15 @@
 
 .MMM-MonthCal .mc-table {
 	border-collapse: collapse;
-	font-size: 13px;
+	font-size: 15px;
 	font-variant-numeric: tabular-nums; /* 日にちの桁を揃える */
 }
 
 .MMM-MonthCal .mc-table th,
 .MMM-MonthCal .mc-table td {
-	width: 28px;
-	height: 26px;
+	/* 文字 ×1.15 に合わせたセル寸法（詰めすぎると窮屈になるので元に戻した）。 */
+	width: 32px;
+	height: 30px;
 	text-align: center;
 	color: #fff;
 	/* 背景の上でも読めるソフト黒フチ。 */
@@ -36,7 +38,7 @@
 
 .MMM-MonthCal .mc-table th {
 	font-weight: 700;
-	font-size: 12px;
+	font-size: 14px;
 }
 
 /* 土曜=青、日曜・祝日=赤。
