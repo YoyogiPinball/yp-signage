@@ -1,4 +1,4 @@
-> 最終更新: 2026-07-20（Mon）19:28
+> 最終更新: 2026-07-21（Tue）02:03
 
 # x13 — ThinkPad X13 常時稼働サイネージ/サーバー
 
@@ -30,7 +30,9 @@ x13/
 │   ├── scripts/               # X13 の ~/run/ へ配布する実行スクリプト
 │   │   ├── mm-start.sh        # MM を systemd user service で起動
 │   │   ├── mm-stop.sh         # MM を停止
-│   │   └── mm-fix-sandbox.sh  # Electron chrome-sandbox の権限修正 (初回のみ)
+│   │   ├── mm-fix-sandbox.sh  # Electron chrome-sandbox の権限修正 (初回のみ)
+│   │   ├── mm-shot.sh         # 現在表示を1枚 PNG に撮る（~/signage/shots/ へ）
+│   │   └── mm-shot.js         # mm-shot.sh が使う Electron キャプチャ本体
 │   └── legacy/                # 旧構成。配布対象外。MM が起動しない時の退避手段として保管
 │       ├── r5.sh              # feh によるスライドショー
 │       ├── signage-*.sh       # mpv によるスライドショー / Sway 版
@@ -108,6 +110,19 @@ ssh x13 'journalctl --user -u magicmirror -f'
 
 `mm-start.sh` は `systemd-run --user` で transient service として起動する。
 ssh セッションの scope から切り離されるため、ssh を切っても MM は生き続ける。
+
+### 画面のスクショを撮る
+
+母艦から X13 のサイネージ表示を1枚 PNG に撮れる。稼働中の画面には触れず、別プロセスの Electron で
+`localhost:8080`（MM 本体）を隠しウィンドウで開いてキャプチャするので、実機と同じフォント・同じ絵が得られる。
+
+```bash
+ssh x13 'bash ~/run/mm-shot.sh'   # ~/signage/shots/<yyyymmddhhmmss>.png に保存
+```
+
+> **Note:** GNOME (Wayland) の D-Bus スクショは新しめの GNOME で拒否され、XWayland の X11 root grab は
+> 合成後の画面が入らず真っ黒になる。どちらも使えないため、MM が配信している Web ページを Electron で
+> 開き直して撮る方式にしている。描画待ちが足りず黒く写るときは `SHOT_WAIT`（ミリ秒）を伸ばす。
 
 ## 画像同期 (sync-images.sh)
 
