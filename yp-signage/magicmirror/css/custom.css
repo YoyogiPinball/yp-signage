@@ -85,6 +85,16 @@
 	padding: 10px 22px;
 }
 
+/* topbar トグル: body.topbar-off が付くと、上バーの板を丸ごと消す（背景・枠線・
+ * ぼかしを無効化。padding は中身の配置維持のため残す）。下バーには影響しない。
+ * 付け外しは MMM-R5 の control("topbar") が document.body に対して行う。 */
+body.topbar-off .region.top.bar > .container {
+	background: none;
+	border-color: transparent;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
 /* 上バーはグリッド：時計｜月カレ｜天気列（現在→予報を縦2段）。 */
 .region.top.bar > .container {
 	display: grid;

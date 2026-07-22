@@ -17,7 +17,7 @@ deploy_signage() {
 
 	# --- 起動・停止スクリプト ---
 	ssh "$HOST" 'mkdir -p ~/run'
-	scp -q "$D/mm-start.sh" "$D/mm-stop.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.js" "$D/README.md" "$HOST":'~/run/'
+	scp -q "$D/mm-start.sh" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.js" "$D/README.md" "$HOST":'~/run/'
 	ssh "$HOST" 'chmod +x ~/run/*.sh'
 
 	# --- MagicMirror 設定・モジュール ---

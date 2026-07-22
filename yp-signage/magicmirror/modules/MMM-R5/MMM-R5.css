@@ -30,3 +30,17 @@
 	object-fit: contain;
 	display: block;
 }
+
+/* 一時停止中バッジ。画面右下に控えめに出す（止まっているのを示すだけ）。 */
+.mmm-r5-paused {
+	position: absolute;
+	right: 24px;
+	bottom: 24px;
+	padding: 8px 14px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.55);
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 22px;
+	letter-spacing: 0.05em;
+	backdrop-filter: blur(4px);
+}

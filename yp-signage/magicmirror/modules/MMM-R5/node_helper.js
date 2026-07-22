@@ -14,6 +14,19 @@ const DEFAULT_DIR = path.join(os.homedir(), "signage", "slides");
 module.exports = NodeHelper.create({
 	start() {
 		this.routeDir = null;
+		// 外部からスライドショーを操作する制御エンドポイント。
+		// `curl localhost:8080/MMM-R5/control/next` のように叩くと、その cmd を
+		// フロント(MMM-R5.js)へ内部通知し、pause/resume/next/prev を実行させる。
+		// ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
+		const ALLOWED = new Set(["pause", "resume", "toggle", "next", "prev", "topbar"]);
+		this.expressApp.get("/MMM-R5/control/:cmd", (req, res) => {
+			const cmd = req.params.cmd;
+			if (!ALLOWED.has(cmd)) {
+				return res.status(400).json({ ok: false, error: `unknown cmd: ${cmd}` });
+			}
+			this.sendSocketNotification("MMM_R5_CONTROL", { cmd });
+			res.json({ ok: true, cmd });
+		});
 	},
 
 	// 指定フォルダを /MMM-R5/images で静的配信する（初回のみ登録。express.static は

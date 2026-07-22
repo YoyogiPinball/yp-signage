@@ -21,6 +21,7 @@ Module.register("MMM-R5", {
 		this.images = [];
 		this.index = 0;
 		this.loaded = false;
+		this.paused = false; // 一時停止中はオート巡回タイマーを止める（手動送りは可）
 		this.timer = null;
 		this.requestImages();
 		setInterval(() => this.requestImages(), this.config.refreshInterval);
@@ -32,11 +33,41 @@ Module.register("MMM-R5", {
 	},
 
 	// 手動で dir 枚ぶん送る（+1=次 / -1=前）。オートのタイマーもリセットして継続。
+	// 一時停止中は送るだけで、オート巡回は再開しない（次の resume まで止めたまま）。
 	step(dir) {
 		if (this.images.length === 0) return;
 		this.index = (this.index + dir + this.images.length) % this.images.length;
 		this.updateDom(this.config.fadeSpeed);
-		this.scheduleNext();
+		if (!this.paused) this.scheduleNext();
+	},
+
+	// node_helper の /MMM-R5/control/<cmd> から届く外部操作を捌く。
+	control(cmd) {
+		switch (cmd) {
+			case "pause":
+				this.paused = true;
+				clearTimeout(this.timer); // オート送りを止める
+				this.updateDom(0); // 一時停止バッジを出す
+				break;
+			case "resume":
+				this.paused = false;
+				this.updateDom(0); // バッジを消す
+				this.scheduleNext(); // オート巡回を再開
+				break;
+			case "toggle":
+				this.control(this.paused ? "resume" : "pause");
+				break;
+			case "next":
+				this.step(1);
+				break;
+			case "prev":
+				this.step(-1);
+				break;
+			case "topbar":
+				// 上バーの板を消す/戻すトグル。CSS の body.topbar-off ルールで見た目が切替わる。
+				document.body.classList.toggle("topbar-off");
+				break;
+		}
 	},
 
 	// node_helper に最新の画像一覧を要求する。
@@ -45,6 +76,10 @@ Module.register("MMM-R5", {
 	},
 
 	socketNotificationReceived(notification, payload) {
+		if (notification === "MMM_R5_CONTROL") {
+			this.control(payload.cmd);
+			return;
+		}
 		if (notification !== "MMM_R5_IMAGES") return;
 		let images = payload.images || [];
 		if (this.config.shuffle) images = this.shuffleArray(images);
@@ -105,6 +140,14 @@ Module.register("MMM-R5", {
 		};
 		img.src = this.images[this.index];
 		wrapper.appendChild(img);
+
+		// 一時停止中は画面隅に控えめなバッジを出す（止まっているか一目でわかる）。
+		if (this.paused) {
+			const badge = document.createElement("div");
+			badge.className = "mmm-r5-paused";
+			badge.textContent = "❙❙ 一時停止中";
+			wrapper.appendChild(badge);
+		}
 		return wrapper;
 	},
 });
