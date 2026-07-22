@@ -69,30 +69,26 @@
 .region.top.bar { top: 7px; }
 .region.bottom.bar { bottom: 7px; }
 
-/* モジュールは region 直下の .container に入る（MM の構造）。共通プレートは
- * バー直下の .container だけにかける（> で限定）。box-sizing 必須（右はみ出し防止）。 */
+/* モジュールは region 直下の .container に入る（MM の構造）。box-sizing 必須
+ * （右はみ出し防止）。padding は板の有無に関わらず中身の配置を保つため常時掛ける。 */
 .region.top.bar > .container,
 .region.bottom.bar > .container {
 	box-sizing: border-box;
 	width: 100%;
 	text-align: left;
-	/* バー共通プレート（1枚だけ） */
+	padding: 10px 22px;
+}
+
+/* バー共通プレート（板）。下バーは常時表示。上バーは既定で透明にし、
+ * body.topbar-on が付いたときだけ板を出す（既定＝透明、コマンドで一時表示）。
+ * 付け外しは MMM-R5 の control("topbar") が document.body に対して行う。 */
+.region.bottom.bar > .container,
+body.topbar-on .region.top.bar > .container {
 	background: rgba(0, 0, 0, 0.10);
 	-webkit-backdrop-filter: blur(3px);
 	backdrop-filter: blur(3px);
 	border: 1px solid rgba(255, 255, 255, 0.12);
 	border-radius: 14px;
-	padding: 10px 22px;
-}
-
-/* topbar トグル: body.topbar-off が付くと、上バーの板を丸ごと消す（背景・枠線・
- * ぼかしを無効化。padding は中身の配置維持のため残す）。下バーには影響しない。
- * 付け外しは MMM-R5 の control("topbar") が document.body に対して行う。 */
-body.topbar-off .region.top.bar > .container {
-	background: none;
-	border-color: transparent;
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
 }
 
 /* 上バーはグリッド：時計｜月カレ｜天気列（現在→予報を縦2段）。 */

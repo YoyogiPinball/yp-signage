@@ -64,8 +64,9 @@ Module.register("MMM-R5", {
 				this.step(-1);
 				break;
 			case "topbar":
-				// 上バーの板を消す/戻すトグル。CSS の body.topbar-off ルールで見た目が切替わる。
-				document.body.classList.toggle("topbar-off");
+				// 上バーの板を一時的に出す/消すトグル。既定は透明で、CSS の
+				// body.topbar-on ルールが付いている間だけ板が出る。
+				document.body.classList.toggle("topbar-on");
 				break;
 		}
 	},
