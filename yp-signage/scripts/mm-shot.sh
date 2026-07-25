@@ -3,8 +3,10 @@
 # 保存先: ~/signage/shots/<yyyymmddhhmmss>.png
 # 使い方: bash ~/run/mm-shot.sh   （母艦からは ssh x13 'bash ~/run/mm-shot.sh'）
 #
-# 撮影の仕組み: org.gnome.Mutter.ScreenCast D-Bus を使い、サイネージ出力先モニタ (HDMI-2 / DP-2) の
+# 撮影の仕組み: org.gnome.Mutter.ScreenCast D-Bus を使い、サイネージ出力先モニタの
 # PipeWire ストリームから 1 フレームを直接キャプチャする。
+# 出力先のコネクタ名は mm-shot.py が Mutter.DisplayConfig に問い合わせて毎回決めるので、
+# ケーブルを挿し替えても直す必要はない。特定のモニタを狙うときだけ SHOT_CONNECTOR=HDMI-2 のように指定する。
 # 別プロセスの Electron 再読み込みではなく実ディスプレイ出力をそのまま撮影するため、
 # 背景スライド等の表示ズレが起きない。
 

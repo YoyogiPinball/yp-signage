@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
 MagicMirror の現在表示（実画面）をキャプチャするヘルパースクリプト。
-Mutter.ScreenCast D-Bus インターフェースを使用し、外部ディスプレイ (HDMI-2 / DP-2) の
+Mutter.ScreenCast D-Bus インターフェースを使用し、サイネージ出力先ディスプレイの
 PipeWire ストリームから 1 フレームを抽出して PNG 保存する。
+
+出力先のコネクタ名は決め打ちにせず、Mutter.DisplayConfig に毎回問い合わせて決める
+(detect_connector を参照)。ケーブルを挿し替えるとコネクタ名は変わるため
+(実績: DP-2 想定だったが実機は HDMI-2 だった)、固定で持つと挿し替えのたびに撮れなくなる。
+SHOT_CONNECTOR 環境変数を与えた場合はその名前を優先する。
 """
 
 import sys
@@ -12,6 +17,49 @@ import shutil
 import tempfile
 import subprocess
 from gi.repository import GLib, Gio
+
+def detect_connector(bus):
+    """サイネージ出力先のコネクタ名を Mutter に問い合わせて決める。
+
+    GetCurrentState は「今 Mutter が有効にしているモニタ」を返すので、抜けている
+    コネクタや無効化された内蔵パネルは最初から候補に入らない。そこから
+    1) 内蔵パネル (is-builtin) を除いた外部モニタ
+    2) 論理原点 (0,0) に置かれているもの
+    の順に優先して1つ選ぶ。サイネージ側は monitors.xml で原点固定しているため、
+    外部モニタが複数あってもサイネージ用が選ばれる。
+    """
+    forced = os.environ.get("SHOT_CONNECTOR")
+    if forced:
+        return forced
+
+    display_config = Gio.DBusProxy.new_sync(
+        bus, Gio.DBusProxyFlags.NONE, None,
+        "org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig",
+        "org.gnome.Mutter.DisplayConfig", None
+    )
+    _serial, monitors, logical_monitors, _props = display_config.call_sync(
+        "GetCurrentState", None, Gio.DBusCallFlags.NONE, -1, None
+    ).unpack()
+
+    # monitors: ((connector, vendor, product, serial), modes, properties)
+    builtin = {m[0][0] for m in monitors if m[2].get("is-builtin", False)}
+
+    # logical_monitors: (x, y, scale, transform, primary, [(connector, ...)], properties)
+    candidates = [
+        (conn[0], x, y)
+        for x, y, _scale, _transform, _primary, conns, _p in logical_monitors
+        for conn in conns
+    ]
+    if not candidates:
+        print("Error: Mutter が有効なモニタを返しませんでした", file=sys.stderr)
+        sys.exit(1)
+
+    external = [c for c in candidates if c[0] not in builtin]
+    pool = external or candidates
+    # 原点(0,0)にあるものを先頭へ
+    pool.sort(key=lambda c: (c[1], c[2]) != (0, 0))
+    return pool[0][0]
+
 
 def capture_screen():
     out_png = os.environ.get("SHOT_OUT", "/tmp/mm-shot.png")
@@ -36,19 +84,17 @@ def capture_screen():
         "org.gnome.Mutter.ScreenCast.Session", None
     )
 
-    # 3. RecordMonitor (優先: HDMI-2, フォールバック: DP-2)
-    connector = "HDMI-2"
+    # 3. RecordMonitor (対象コネクタは Mutter への問い合わせで決める)
+    connector = detect_connector(bus)
     try:
         stream_path = session.call_sync(
             "RecordMonitor", GLib.Variant("(sa{sv})", (connector, {})),
             Gio.DBusCallFlags.NONE, -1, None
         ).unpack()[0]
-    except Exception:
-        connector = "DP-2"
-        stream_path = session.call_sync(
-            "RecordMonitor", GLib.Variant("(sa{sv})", (connector, {})),
-            Gio.DBusCallFlags.NONE, -1, None
-        ).unpack()[0]
+    except Exception as e:
+        session.call_sync("Stop", None, Gio.DBusCallFlags.NONE, -1, None)
+        print(f"Error: モニタ {connector} の録画を開始できません: {e}", file=sys.stderr)
+        sys.exit(1)
 
     stream = Gio.DBusProxy.new_sync(
         bus, Gio.DBusProxyFlags.NONE, None,
