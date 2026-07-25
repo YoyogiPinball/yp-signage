@@ -23,6 +23,7 @@ Module.register("MMM-R5", {
 		this.loaded = false;
 		this.paused = false; // 一時停止中はオート巡回タイマーを止める（手動送りは可）
 		this.timer = null;
+		this.lastLogged = null; // 直近で r5-now.log に記録した画像URL（同じ画像の二重記録を防ぐ）
 		this.requestImages();
 		setInterval(() => this.requestImages(), this.config.refreshInterval);
 		// ←/→ で手動送り（1枚戻る/進む）。手動操作後もオート巡回は継続する。
@@ -122,6 +123,15 @@ Module.register("MMM-R5", {
 			wrapper.textContent = "画像なし (~/signage/slides)";
 			return wrapper;
 		}
+		// 画面に出す画像を ~/signage/r5-now.log に記録する。目視で「これ壊れてる」と
+		// 気づいたときに、その場でファイル名を引けるようにするため。ブラウザ側は
+		// ディスクに書けないので node_helper に投げる。
+		// getDom は一時停止バッジの出し入れでも走るため、画像が実際に変わったときだけ送る。
+		if (this.images[this.index] !== this.lastLogged) {
+			this.lastLogged = this.images[this.index];
+			this.sendSocketNotification("MMM_R5_NOW", { url: this.lastLogged });
+		}
+
 		// ぼかし拡大背景: 同じ画像を cover＋ぼかしで背面に敷き、レターボックスの帯を
 		// 写真の延長（ぼかし）で埋める。前面の contain 画像は切れずに全体表示のまま。
 		const bg = document.createElement("img");

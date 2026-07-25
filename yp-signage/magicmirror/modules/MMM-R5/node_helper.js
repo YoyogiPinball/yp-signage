@@ -11,9 +11,16 @@ const path = require("path");
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
 const DEFAULT_DIR = path.join(os.homedir(), "signage", "slides");
 
+// 表示履歴の置き場。画面を見て「これ壊れてる」と思ったとき `cat` で犯人を引くためのもの。
+// 直近 NOW_KEEP 件だけ持つ（1枚60秒なので 10件 ≒ 直近10分）。気づいてから見に行くまでの
+// 猶予を作るのが目的で、最新1件だけだと次の画像に切り替わって犯人が消える。
+const NOW_LOG = path.join(os.homedir(), "signage", "r5-now.log");
+const NOW_KEEP = 10;
+
 module.exports = NodeHelper.create({
 	start() {
 		this.routeDir = null;
+		this.recent = []; // 表示履歴（末尾が最新）。MM 再起動で空に戻る
 		// 外部からスライドショーを操作する制御エンドポイント。
 		// `curl localhost:8080/MMM-R5/control/next` のように叩くと、その cmd を
 		// フロント(MMM-R5.js)へ内部通知し、pause/resume/next/prev を実行させる。
@@ -37,7 +44,28 @@ module.exports = NodeHelper.create({
 		this.routeDir = imageDir;
 	},
 
+	// 表示中の画像を時刻付きで r5-now.log に書き出す。直近ぶんをメモリに持って毎回
+	// 全部書き直す（追記して後から切り詰めるより単純で、ファイルが育たない）。
+	recordNow(url) {
+		if (!url) return;
+		// url は "/MMM-R5/images/r5/foo.png" 形式で符号化済み。復号は "/" を壊さないので
+		// 全体に掛けてよい（符号化と違いセグメント分割は不要）。
+		const file = decodeURIComponent(String(url).replace("/MMM-R5/images/", ""));
+		const time = new Date().toTimeString().slice(0, 8);
+		this.recent.push(`${time}  ${file}`);
+		if (this.recent.length > NOW_KEEP) this.recent = this.recent.slice(-NOW_KEEP);
+		try {
+			fs.writeFileSync(NOW_LOG, this.recent.join("\n") + "\n");
+		} catch (e) {
+			console.error(`[MMM-R5] 表示履歴を書けません: ${NOW_LOG} (${e.message})`);
+		}
+	},
+
 	socketNotificationReceived(notification, payload) {
+		if (notification === "MMM_R5_NOW") {
+			this.recordNow(payload.url);
+			return;
+		}
 		if (notification !== "MMM_R5_GET_IMAGES") return;
 		const imageDir = payload.imageDir || DEFAULT_DIR;
 		this.ensureRoute(imageDir);
