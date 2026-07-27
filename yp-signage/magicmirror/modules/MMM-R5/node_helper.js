@@ -17,6 +17,16 @@ const DEFAULT_DIR = path.join(os.homedir(), "signage", "slides");
 const NOW_LOG = path.join(os.homedir(), "signage", "r5-now.log");
 const NOW_KEEP = 10;
 
+// 表示履歴の行頭ラベル。「なぜこの画像に変わったか」を残す。ラベルが無い行は自動送り。
+// 手動送りと自動送りが区別できないと、prev/next の挙動を後から追えない。
+const LABELS = {
+	next: "[次へ]", // mm-ctl.sh next / →キー
+	prev: "[前へ]", // mm-ctl.sh prev / ←キー
+	alt: "[代替]", // 直前の画像が読めず、代わりに出した1枚
+	broken: "[壊れ]", // 読み込みに失敗した画像そのもの
+};
+const NO_LABEL = "      "; // ラベル無しの桁合わせ（日本語2文字＋括弧＝表示幅6）
+
 module.exports = NodeHelper.create({
 	start() {
 		this.routeDir = null;
@@ -44,18 +54,41 @@ module.exports = NodeHelper.create({
 		this.routeDir = imageDir;
 	},
 
+	// url は "/MMM-R5/images/r5/foo.png" 形式で符号化済み。復号は "/" を壊さないので
+	// 全体に掛けてよい（符号化と違いセグメント分割は不要）。
+	toFile(url) {
+		return decodeURIComponent(String(url).replace("/MMM-R5/images/", ""));
+	},
+
 	// 表示中の画像を時刻付きで r5-now.log に書き出す。直近ぶんをメモリに持って毎回
 	// 全部書き直す（追記して後から切り詰めるより単純で、ファイルが育たない）。
-	recordNow(url) {
+	recordNow(url, reason) {
 		if (!url) return;
-		// url は "/MMM-R5/images/r5/foo.png" 形式で符号化済み。復号は "/" を壊さないので
-		// 全体に掛けてよい（符号化と違いセグメント分割は不要）。
-		const file = decodeURIComponent(String(url).replace("/MMM-R5/images/", ""));
 		const time = new Date().toTimeString().slice(0, 8);
-		this.recent.push(`${time}  ${file}`);
+		this.recent.push({ time, file: this.toFile(url), label: LABELS[reason] || "" });
 		if (this.recent.length > NOW_KEEP) this.recent = this.recent.slice(-NOW_KEEP);
+		this.writeNow();
+	},
+
+	// 読み込みに失敗した画像の行に [壊れ] を立てる。その画像は表示を試みた時点で
+	// recordNow 済みなので、末尾から遡って同じファイルの行を書き換える。
+	// これで「同じ秒に2行並ぶ」の上側が犯人だと一目で分かる。
+	markBroken(url) {
+		if (!url) return;
+		const file = this.toFile(url);
+		for (let i = this.recent.length - 1; i >= 0; i--) {
+			if (this.recent[i].file === file) {
+				this.recent[i].label = LABELS.broken;
+				this.writeNow();
+				return;
+			}
+		}
+	},
+
+	writeNow() {
+		const body = this.recent.map((r) => `${r.time}  ${r.label || NO_LABEL}  ${r.file}`).join("\n");
 		try {
-			fs.writeFileSync(NOW_LOG, this.recent.join("\n") + "\n");
+			fs.writeFileSync(NOW_LOG, body + "\n");
 		} catch (e) {
 			console.error(`[MMM-R5] 表示履歴を書けません: ${NOW_LOG} (${e.message})`);
 		}
@@ -63,7 +96,11 @@ module.exports = NodeHelper.create({
 
 	socketNotificationReceived(notification, payload) {
 		if (notification === "MMM_R5_NOW") {
-			this.recordNow(payload.url);
+			this.recordNow(payload.url, payload.reason);
+			return;
+		}
+		if (notification === "MMM_R5_BROKEN") {
+			this.markBroken(payload.url);
 			return;
 		}
 		if (notification !== "MMM_R5_GET_IMAGES") return;
