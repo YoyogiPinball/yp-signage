@@ -1,16 +1,27 @@
-/* MMM-OshiCal — 「今日の予定」2段カードのスタイル。
+/* MMM-OshiCal — 「配信予定」2段カードのスタイル（今日のこれから＋明日）。
  * 白文字・プレート・画面端寄せは custom.css（.r5-plate / :root）側で共通適用。
  * ここはカード固有のレイアウト（時刻列の縦揃え・2段・読みやすいフチ）を持つ。
  */
+/* 1枠ぶんの寸法。予定が少ない日でも枠の形（列幅・バー高）を変えないための基準で、
+ * front が grid-template-rows の最小値と、空表示時の min-height に使う。
+ * --oc-row = 「時刻＋名前＋予定の2段」1枠の実寸
+ *          = 1.2行送り × 2段 + 上下padding 12px + 区切り線 1px。
+ * .oc-list の外（空表示の .oc）からも参照するのでモジュール直下に置く。em ではなく
+ * --oc-font 基準にしているのは、.oc-list の font-size が効かない位置でも同値にするため。 */
+.MMM-OshiCal {
+	--oc-font: 15px; /* ×1.15（13→15） */
+	--oc-row: calc(2.4 * var(--oc-font) + 13px);
+}
+
 .MMM-OshiCal .oc-list {
 	display: grid;
 	grid-auto-flow: column; /* 列優先：上→下に埋めてから次の列へ（左の列ほど早い時刻） */
-	grid-auto-columns: 1fr; /* 各列を等幅に（配信名は…で省略） */
-	/* grid-template-rows は front が件数から算出して inline 指定する */
+	/* 列数・行数は front が inline で指定する。列は必要数だけ作る自動列ではなく明示
+	 * トラックにし、行は minmax(--oc-row, auto) で潰れないようにしてある。 */
 	width: 100%;
 	column-gap: 28px; /* ×1.15 */
 	row-gap: 0; /* 案B: 行は区切り線で分ける（gap ではなく border-bottom＋padding） */
-	font-size: 15px; /* ×1.15（13→15） */
+	font-size: var(--oc-font);
 	-webkit-font-smoothing: antialiased;
 }
 
@@ -29,6 +40,49 @@
 }
 .MMM-OshiCal .oc-body {
 	min-width: 0; /* 名前・予定の省略記号(…)を効かせるため */
+}
+
+/* 日の始まりに置く日付セル（例「07/28（火）」）。
+ * 時刻｜本文の2列を持たない1枠なので display を上書きする。 */
+.MMM-OshiCal .oc-dayhead {
+	display: flex;
+	align-items: center;
+	font-weight: 700;
+	font-size: 15px;
+	letter-spacing: 0.06em;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	text-shadow:
+		0 0 3px #000,
+		0 0 3px #000,
+		0 1px 2px #000;
+}
+
+/* 翌日以降ぶん（日付セルと、それに続く予定）は左のアクセントバーを別の色にする。
+ * 列を送らずそのまま流すので、今日と地続きに見えないよう色で切り分ける。
+ * 日ごとに色を変えることはしない。日の区切りは日付セルが担っており、色数を増やすと
+ * 「配信中（オレンジ）＝いま見るべき」の信号が埋もれるため、今日／それ以降の2色に留める。
+ * 時刻テキストもバーに合わせる（片方だけ今日の青緑だとちぐはぐになるため）。 */
+.MMM-OshiCal .oc-dayhead,
+.MMM-OshiCal .oc-item.oc-next {
+	border-left-color: #8fb4e8;
+}
+.MMM-OshiCal .oc-next .oc-badge {
+	color: #cfe0f7 !important;
+}
+
+/* まだ埋まっていない枠。中身は無く、区切り線と左バーだけを薄く出して枠の形を見せる。
+ * 予定の件数で枠の見え方が変わらないようにするため、常に総枠数まで並べる。 */
+.MMM-OshiCal .oc-blank {
+	border-left-color: rgba(255, 255, 255, 0.22);
+}
+
+/* 「予定なし」「読み込み中」の知らせ。日付セルと同じ1段組みで、左バーは空枠に合わせる。 */
+.MMM-OshiCal .oc-notice {
+	border-left-color: rgba(255, 255, 255, 0.22);
+	color: rgba(255, 255, 255, 0.75) !important;
+	font-weight: 400;
+	letter-spacing: 0.02em;
 }
 
 .MMM-OshiCal .oc-badge {
@@ -69,16 +123,11 @@
 
 /* 可読性: ぼかしを効かせたソフト黒フチ（案Bは背景プレートが薄いのでフチを強める）。 */
 .MMM-OshiCal .oc-who,
-.MMM-OshiCal .oc-sub,
-.MMM-OshiCal .oc-empty {
+.MMM-OshiCal .oc-sub {
 	text-shadow:
 		0 0 3px #000,
 		0 0 3px #000,
 		0 1px 2px #000;
-}
-
-.MMM-OshiCal .oc-empty {
-	font-size: 14px; /* ×1.15 */
 }
 
 /* 配信中と思われる予定（開始済み・今と同じ時間帯）をオレンジで強調する。

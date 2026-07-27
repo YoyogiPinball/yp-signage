@@ -37,13 +37,13 @@
 	opacity: 1 !important;
 }
 
-/* 「今日の予定」パネルは自作モジュール MMM-OshiCal（案C=2段カード）。
+/* 「配信予定」パネルは自作モジュール MMM-OshiCal（案C=2段カード）。
  * カード自体の並び・フチ・サイズは modules/MMM-OshiCal/MMM-OshiCal.css 側。
  * ここでは共通プレート(r5-plate)の余白だけ、パネルに合わせて実寸で詰める。 */
 .module.MMM-OshiCal.r5-plate {
 	padding: 12px 17px; /* ×1.15（下部バーとその中身を一律拡大） */
 }
-/* モジュール見出し「今日の予定」を少し際立たせる。 */
+/* モジュール見出しを少し際立たせる。 */
 .module.r5-plate .module-header {
 	font-size: 17px;
 	letter-spacing: 0.08em;
@@ -58,7 +58,7 @@
 	text-shadow: none;
 }
 
-/* ===== 上下バー：上=時計/月カレ/天気、下=今日の予定のみ ===== */
+/* ===== 上下バー：上=時計/月カレ/天気、下=配信予定のみ ===== */
 /* 位置は region に。左右20px内側、上下は7pxに詰めてバーを画面端へ寄せる。 */
 .region.top.bar,
 .region.bottom.bar {
@@ -138,7 +138,7 @@ body.topbar-on .region.top.bar > .container {
 	display: none;
 }
 
-/* ===== 下部：今日の予定(OshiCal)のみ。列優先グリッドで高さを抑える。 ===== */
+/* ===== 下部：配信予定(OshiCal)のみ。列優先グリッドで高さを抑える。 ===== */
 /* OshiCal はバー全幅を使う（列数・行数は OshiCal 側が config.columns で制御）。 */
 .region.bottom.bar .MMM-OshiCal {
 	width: 100%;

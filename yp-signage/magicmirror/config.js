@@ -19,12 +19,12 @@ const secrets = (() => {
 })();
 
 // --- 環境変数（一時テスト用） ---
-// X13_COLS: 下部「今日の予定」の列数。3 か 4（既定4）。
+// X13_COLS: 下部「配信予定」の列数。3 か 4（既定4）。
 // X13_OSHI_NOW: OshiCal のデバッグ現在時刻（例 "2026-07-19T06:00"）。空なら実時刻。
 //   起動例: X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
 const oshiNow = process.env.X13_OSHI_NOW || "";
 const oshiCols = process.env.X13_COLS === "3" ? 3 : 4; // 予定の列数（3 か 4）。既定4。
-const oshiMax = oshiCols * 6; // 列数×6行を表示上限に
+const oshiMax = oshiCols * 5; // 列数×5行を表示上限に（front は maxEntries÷列数 を行数の上限に使う）
 
 let config = {
 	address: "localhost",
@@ -78,7 +78,7 @@ let config = {
 				dateFormat: "YYYY/MM/DD（dd）",
 			},
 		},
-		// 今日の予定（iCal購読）＝下部バー(bottom_bar)。ここだけ下に置く。
+		// 配信予定（iCal購読）＝下部バー(bottom_bar)。今日のこれから＋明日。ここだけ下に置く。
 		...(secrets.calendarIcs
 			? [
 					{
