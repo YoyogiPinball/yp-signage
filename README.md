@@ -1,4 +1,4 @@
-> 最終更新: 2026-07-27（Mon）12:48
+> 最終更新: 2026-08-03（Mon）00:23
 
 # x13 — ThinkPad X13 常時稼働サイネージ/サーバー
 
@@ -19,8 +19,8 @@ x13/
 ├── yp-signage/                # 用途: サイネージ表示 (yoyogipinball signage)
 │   ├── magicmirror/
 │   │   ├── config.js          # MM 設定（モジュール構成、Electron 窓位置）
-│   │   ├── secrets.example.js # secrets.js のテンプレート
-│   │   ├── secrets.js         # .gitignore 済み。iCal URL 等の秘密情報
+│   │   ├── .env.example       # .env のテンプレート
+│   │   ├── .env               # .gitignore 済み。iCal URL 等の秘密情報と環境ごとの設定値
 │   │   ├── css/
 │   │   │   └── custom.css     # 白文字、ソフト黒フチ、半透明プレート (.r5-plate)
 │   │   └── modules/
@@ -87,13 +87,23 @@ x13/
 - `loginctl enable-linger <user>` 済み（ssh 切断後もユーザーサービスを維持）
 - サイネージ用画像を `~/signage/slides/` 以下に配置（`sync-images.sh` が自動で置く。後述）
 
-### secrets の準備
+### .env の準備
+
+秘密情報（iCal URL・API キー）と、環境ごとに変わる設定値（モニターの解像度・表示秒数など）は
+`.env` にまとめてある。`config.js` を開かずにこのファイルだけで設定を変えられる。
 
 ```bash
-cd magicmirror
-cp secrets.example.js secrets.js
-# secrets.js を編集し、calendarIcs に実際の iCal URL を書く
+cd yp-signage/magicmirror
+cp .env.example .env
+# .env を編集し、SIGNAGE_CALENDAR_ICS に実際の iCal URL を書く
 ```
+
+書式は `KEY=値` だけで、引用符もカンマも要らない。1行書き損じてもその項目が既定値に落ちるだけで、
+他の設定は生き残る。項目の一覧と意味は `.env.example` のコメントを参照。
+
+配布先では `~/MagicMirror/.env`（`config/` ではなく MagicMirror のルート）に置く。
+`config.js` が `process.loadEnvFile()` で「カレントディレクトリの `.env`」を読むためで、
+置き場所を間違えると全項目が既定値に落ちる。
 
 ### 初回デプロイ
 
@@ -270,7 +280,7 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 |---|---|
 | `yp-signage/scripts/*.sh` | `~/run/` |
 | `yp-signage/magicmirror/config.js` | `~/MagicMirror/config/config.js` |
-| `yp-signage/magicmirror/secrets.js` | `~/MagicMirror/config/secrets.js` |
+| `yp-signage/magicmirror/.env` | `~/MagicMirror/.env`（config/ ではなくルート） |
 | `yp-signage/magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
 | `yp-signage/magicmirror/modules/MMM-R5/*` | `~/MagicMirror/modules/MMM-R5/` |
 | `yp-signage/magicmirror/modules/MMM-OshiCal/*` | `~/MagicMirror/modules/MMM-OshiCal/` |

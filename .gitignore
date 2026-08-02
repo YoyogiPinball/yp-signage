@@ -7,6 +7,8 @@
 /tmp/
 
 # 秘密情報（APIキー・OAuth等はここへ。config本体には直書きしない方針）
+# サイネージの設定値と秘密情報は magicmirror/.env にまとめてある。テンプレは .env.example（コミット対象）。
+.env
 secrets/
 *.secret
 secrets.js

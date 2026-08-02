@@ -1,34 +1,49 @@
 /* MagicMirror² config — X13 サイネージ構成
- * 正本: ~/Batches/x13/magicmirror/config.js → 配布先 ~/MagicMirror/config/config.js
+ * 正本: ~/Batches/x13/yp-signage/magicmirror/config.js → 配布先 ~/MagicMirror/config/config.js
+ *
+ * 設定値は .env（配布先では ~/MagicMirror/.env）から読む。このファイルを開かずに
+ * 解像度・表示秒数・iCal URL を変えられるようにするため。項目の一覧は .env.example。
+ *
+ * 引数なしの process.loadEnvFile() は「カレントディレクトリの .env」を読む。MM は
+ * MagicMirror のルートを cwd にして起動する（mm-start.sh の --working-directory）ので、
+ * パスを組み立てる必要がない。以前の secrets.js は require で読んでいたが、MM は
+ * config.js を require せず eval 相当で読むため、相対 require が本体 js ディレクトリ基準に
+ * なって失敗する罠があった。.env は require を通さないので、その罠ごと消えている。
+ *
+ * .env が無くても起動は止めない。全項目に既定値があり、秘密情報が空ならその機能を出さない。
  */
+try {
+	process.loadEnvFile();
+} catch (e) {
+	// .env が無い・読めない場合は既定値だけで起動する
+}
 
-// 秘密情報(ICS URL等)は secrets.js から読む。無ければ空扱いにして起動は止めない。
-// 注意: MM は config.js を require せず fs.readFileSync+eval で読む。その中の
-// require("./secrets.js") は config ディレクトリ基準では解決されない（MM の js/ 基準に
-// なって失敗する）。そのため MM が用意する global.root_path から絶対パスで読む。
-// ローカルの `node -e require("./config.js")` テスト時は root_path が無いので相対にフォールバック。
-const secrets = (() => {
-	try {
-		if (typeof global !== "undefined" && global.root_path) {
-			return require(`${global.root_path}/config/secrets.js`);
-		}
-		return require("./secrets.js");
-	} catch (e) {
-		return {};
-	}
-})();
+const env = process.env;
 
-// --- 環境変数（一時テスト用） ---
-// X13_COLS: 下部「配信予定」の列数。3 か 4（既定4）。
-// X13_OSHI_NOW: OshiCal のデバッグ現在時刻（例 "2026-07-19T06:00"）。空なら実時刻。
-//   起動例: X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
-const oshiNow = process.env.X13_OSHI_NOW || "";
-const oshiCols = process.env.X13_COLS === "3" ? 3 : 4; // 予定の列数（3 か 4）。既定4。
+// 環境変数の値は必ず文字列で届く。未設定と空文字は「書かなかった」とみなして既定値に落とす。
+const str = (v, d) => (v === undefined || v === "" ? d : v);
+const num = (v, d) => {
+	if (v === undefined || v === "") return d;
+	const n = Number(v);
+	return Number.isNaN(n) ? d : n;
+};
+// "false" は文字列としては真になってしまうので、"true" と一致したときだけ真と見なす。
+const bool = (v, d) => (v === undefined || v === "" ? d : v === "true");
+
+// --- 一時上書き（.env を書き換えずにその場だけ変える） ---
+// mm-start.sh が呼び出し側の環境変数をそのまま MM へ引き渡す。
+//   X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
+// 未指定でも空文字として渡ってくるため、空なら .env 側の値を使う。
+const oshiCols = num(str(env.X13_COLS, env.SIGNAGE_OSHI_COLS), 4) === 3 ? 3 : 4;
+const oshiNow = str(env.X13_OSHI_NOW, ""); // OshiCal のデバッグ現在時刻（空なら実時刻）
 const oshiMax = oshiCols * 5; // 列数×5行を表示上限に（front は maxEntries÷列数 を行数の上限に使う）
+
+const calendarIcs = str(env.SIGNAGE_CALENDAR_ICS, ""); // 空なら「配信予定」バーを出さない
+const owmApiKey = str(env.SIGNAGE_OWM_API_KEY, ""); // 空なら天気パネルを出さない
 
 let config = {
 	address: "localhost",
-	port: 8080,
+	port: num(env.SIGNAGE_PORT, 8080),
 	basePath: "/",
 	ipWhitelist: ["127.0.0.1", "::ffff:127.0.0.1", "::1"],
 	useHttps: false,
@@ -48,21 +63,25 @@ let config = {
 	electronOptions: {
 		x: 0,
 		y: 0,
-		width: 1080,
-		height: 1920,
+		width: num(env.SIGNAGE_WIDTH, 1080),
+		height: num(env.SIGNAGE_HEIGHT, 1920),
 		fullscreen: true,
 		autoHideMenuBar: true,
 	},
 
 	modules: [
-		// 背景の全画面スライドショー（~/signage/r5 の画像を巡回）。他モジュールはこの上に重なる。
+		// 背景の全画面スライドショー（~/signage/slides の画像を巡回）。他モジュールはこの上に重なる。
+		// imageDir / logPath は空ならモジュール側の既定（~/signage/... ）に落ちる。ホームの位置は
+		// 環境で変わるため、決め打ちの絶対パスをここに書かない。
 		{
 			module: "MMM-R5",
 			position: "fullscreen_below",
 			config: {
-				slideInterval: 60000, // 1枚60秒（feedback 2026-07-18）
-				fadeSpeed: 1200,
-				shuffle: true,
+				imageDir: str(env.SIGNAGE_IMAGE_DIR, null),
+				logPath: str(env.SIGNAGE_LOG_PATH, null),
+				slideInterval: num(env.SIGNAGE_SLIDE_INTERVAL, 60000), // 1枚60秒（feedback 2026-07-18）
+				fadeSpeed: num(env.SIGNAGE_FADE_SPEED, 1200),
+				shuffle: bool(env.SIGNAGE_SHUFFLE, true),
 			},
 		},
 		// 上部バー(top_bar)に 時計・月カレ・天気 を横並び。下部バー(bottom_bar)は予定のみ。
@@ -79,7 +98,7 @@ let config = {
 			},
 		},
 		// 配信予定（iCal購読）＝下部バー(bottom_bar)。今日のこれから＋明日。ここだけ下に置く。
-		...(secrets.calendarIcs
+		...(calendarIcs
 			? [
 					{
 						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
@@ -88,7 +107,7 @@ let config = {
 						position: "bottom_bar",
 						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 						config: {
-							icsUrl: secrets.calendarIcs,
+							icsUrl: calendarIcs,
 							maxEntries: oshiMax,
 							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
 							columns: oshiCols, // 予定の列数（front が body class x13-cols-N に反映）
@@ -97,6 +116,7 @@ let config = {
 							// firingStyle は光り方（CSS の f1〜f5）。4 = 0.9秒周期のはっきりした明滅。
 							// ゆっくり変化する案（1〜3・5）は視界の端だと目が慣れて気づけないため、
 							// 「点いて消える」動きのある 4 を選んでいる。見比べは `mm-ctl.sh blink 3` 等で。
+							// 環境ごとに変わる値ではなく全環境共通の設計判断なので、.env には出さない。
 							firingDurationMs: 60 * 1000,
 							firingStyle: 4,
 						},
@@ -111,7 +131,7 @@ let config = {
 		},
 		// 天気＝上バー右：5日予報のみ（現在の気温 weather-current は 2026-07-21 に非表示化）。
 		// OWM 無料キーがある時だけ。weather-forecast クラスで段を割り振る。
-		...(secrets.owmApiKey
+		...(owmApiKey
 			? [
 					{
 						module: "weather",
@@ -122,9 +142,9 @@ let config = {
 							apiVersion: "2.5", // 無料枠。既定 3.0(/onecall) を避ける
 							weatherEndpoint: "/forecast", // 5day/3h(v2.5・無料)を日ごとに集約
 							type: "forecast",
-							lat: secrets.weatherLat ?? 35.681,
-							lon: secrets.weatherLon ?? 139.767,
-							apiKey: secrets.owmApiKey,
+							lat: num(env.SIGNAGE_WEATHER_LAT, 35.681),
+							lon: num(env.SIGNAGE_WEATHER_LON, 139.767),
+							apiKey: owmApiKey,
 							maxNumberOfDays: 5,
 							fade: false,
 							absoluteDates: true, // 「今日/明日」表記をやめ、常に日付書式で出す

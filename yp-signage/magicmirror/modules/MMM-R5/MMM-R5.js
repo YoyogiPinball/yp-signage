@@ -7,6 +7,7 @@
 Module.register("MMM-R5", {
 	defaults: {
 		imageDir: null, // null なら node_helper 側の既定 ~/signage/slides（サブフォルダも再帰で拾う）
+		logPath: null, // 表示履歴の書き出し先。null なら node_helper 側の既定 ~/signage/r5-now.log
 		slideInterval: 8000, // 1枚の表示時間(ms)
 		fadeSpeed: 1200, // 切替時のフェード時間(ms)
 		shuffle: true, // 表示順をシャッフルするか
@@ -76,7 +77,12 @@ Module.register("MMM-R5", {
 
 	// node_helper に最新の画像一覧を要求する。
 	requestImages() {
-		this.sendSocketNotification("MMM_R5_GET_IMAGES", { imageDir: this.config.imageDir });
+		// 置き場所の設定（imageDir / logPath）はここでまとめて helper へ渡す。helper は
+		// ディスクを触る側なので、パスの既定値も helper 側が持つ（null なら既定に落ちる）。
+		this.sendSocketNotification("MMM_R5_GET_IMAGES", {
+			imageDir: this.config.imageDir,
+			logPath: this.config.logPath,
+		});
 	},
 
 	socketNotificationReceived(notification, payload) {

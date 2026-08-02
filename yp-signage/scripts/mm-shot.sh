@@ -19,8 +19,17 @@ SHOT_DIR="$HOME/signage/shots"
 mkdir -p "$SHOT_DIR"
 OUT="${SHOT_OUT:-$SHOT_DIR/$(date +%Y%m%d%H%M%S).png}"
 
-if ! ss -ltn 2>/dev/null | grep -q '127.0.0.1:8080'; then
-	echo "エラー: MagicMirror (localhost:8080) が起動していない。先に bash ~/run/mm-start.sh" >&2
+# 起動確認のポートも ~/MagicMirror/.env の SIGNAGE_PORT に従う（mm-ctl.sh と同じ理由）。
+# 直書きのままだと、ポートを変えたときに動いている MM を「起動していない」と誤判定する。
+ENV_FILE="$HOME/MagicMirror/.env"
+PORT=""
+if [ -f "$ENV_FILE" ]; then
+	PORT=$(sed -n 's/^[[:space:]]*SIGNAGE_PORT[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$ENV_FILE" | tail -1)
+fi
+PORT="${PORT:-8080}"
+
+if ! ss -ltn 2>/dev/null | grep -q "127.0.0.1:${PORT}"; then
+	echo "エラー: MagicMirror (localhost:${PORT}) が起動していない。先に bash ~/run/mm-start.sh" >&2
 	exit 1
 fi
 

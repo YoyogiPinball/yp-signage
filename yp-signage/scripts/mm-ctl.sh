@@ -1,8 +1,20 @@
 #!/bin/bash
 # サイネージ操作。母艦から `ssh x13 'bash ~/run/mm-ctl.sh next'` で叩く。
-# 内部では MagicMirror(localhost:8080) の各モジュールの制御エンドポイントを叩くだけ（curl/wget）。
+# 内部では MagicMirror の各モジュールの制御エンドポイントを叩くだけ（curl/wget）。
 # 使い方: mm-ctl.sh {pause|resume|toggle|next|prev|topbar|blink [1-5] [秒]}
 set -euo pipefail
+
+# 接続先ポートは ~/MagicMirror/.env の SIGNAGE_PORT に従う（config.js と同じ正本を読む）。
+# ここに 8080 を直書きすると、.env でポートを変えたときに表示は正常なのに操作だけが
+# 届かなくなる。原因が分かりにくい壊れ方なので、設定は1箇所から読む。
+# .env を source すると中身がシェルとして実行されてしまうため、数字だけを抜き出す。
+ENV_FILE="$HOME/MagicMirror/.env"
+PORT=""
+if [ -f "$ENV_FILE" ]; then
+	PORT=$(sed -n 's/^[[:space:]]*SIGNAGE_PORT[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$ENV_FILE" | tail -1)
+fi
+PORT="${PORT:-8080}" # .env が無い・SIGNAGE_PORT を書いていない場合は config.js の既定と同じ
+BASE="localhost:${PORT}"
 
 cmd="${1:-}"
 case "$cmd" in
@@ -30,13 +42,13 @@ if [ "$cmd" = "blink" ]; then
 	if [ -n "$sec" ]; then
 		if [ -n "$q" ]; then q="${q}&sec=${sec}"; else q="?sec=${sec}"; fi
 	fi
-	url="localhost:8080/MMM-OshiCal/test-blink${q}"
+	url="${BASE}/MMM-OshiCal/test-blink${q}"
 	names=("" "控えめ" "濃い" "全周を囲む" "はっきり明滅" "反転（最強）")
 	label=""
 	[ -n "$style" ] && label="案${style}（${names[$style]}）で "
 	msg="✨ ${label}先頭の枠を${sec:-60}秒間 光らせました"
 else
-	url="localhost:8080/MMM-R5/control/${cmd}"
+	url="${BASE}/MMM-R5/control/${cmd}"
 fi
 # X13 には curl が無い環境があるため wget にフォールバックする。
 if command -v curl >/dev/null 2>&1; then

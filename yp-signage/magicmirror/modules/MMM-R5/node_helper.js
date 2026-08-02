@@ -14,7 +14,7 @@ const DEFAULT_DIR = path.join(os.homedir(), "signage", "slides");
 // 表示履歴の置き場。画面を見て「これ壊れてる」と思ったとき `cat` で犯人を引くためのもの。
 // 直近 NOW_KEEP 件だけ持つ（1枚60秒なので 10件 ≒ 直近10分）。気づいてから見に行くまでの
 // 猶予を作るのが目的で、最新1件だけだと次の画像に切り替わって犯人が消える。
-const NOW_LOG = path.join(os.homedir(), "signage", "r5-now.log");
+const DEFAULT_LOG = path.join(os.homedir(), "signage", "r5-now.log");
 const NOW_KEEP = 10;
 
 // 表示履歴の行頭ラベル。「なぜこの画像に変わったか」を残す。ラベルが無い行は自動送り。
@@ -30,6 +30,7 @@ const NO_LABEL = "      "; // ラベル無しの桁合わせ（日本語2文字�
 module.exports = NodeHelper.create({
 	start() {
 		this.routeDir = null;
+		this.logPath = DEFAULT_LOG; // config で上書きされるまでは既定の置き場所を使う
 		this.recent = []; // 表示履歴（末尾が最新）。MM 再起動で空に戻る
 		// 外部からスライドショーを操作する制御エンドポイント。
 		// `curl localhost:8080/MMM-R5/control/next` のように叩くと、その cmd を
@@ -88,9 +89,9 @@ module.exports = NodeHelper.create({
 	writeNow() {
 		const body = this.recent.map((r) => `${r.time}  ${r.label || NO_LABEL}  ${r.file}`).join("\n");
 		try {
-			fs.writeFileSync(NOW_LOG, body + "\n");
+			fs.writeFileSync(this.logPath, body + "\n");
 		} catch (e) {
-			console.error(`[MMM-R5] 表示履歴を書けません: ${NOW_LOG} (${e.message})`);
+			console.error(`[MMM-R5] 表示履歴を書けません: ${this.logPath} (${e.message})`);
 		}
 	},
 
@@ -105,6 +106,7 @@ module.exports = NodeHelper.create({
 		}
 		if (notification !== "MMM_R5_GET_IMAGES") return;
 		const imageDir = payload.imageDir || DEFAULT_DIR;
+		this.logPath = payload.logPath || DEFAULT_LOG;
 		this.ensureRoute(imageDir);
 
 		let images = [];
