@@ -13,6 +13,21 @@ const JST_OFFSET = 9 * 60 * 60 * 1000;
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 module.exports = NodeHelper.create({
+	start() {
+		// 点滅を手で起こすための確認用エンドポイント。
+		// 本番の点滅は配信の開始時刻ちょうどにしか起きず、待たないと目視確認ができない。
+		// `curl localhost:8080/MMM-OshiCal/test-blink` で front に合図を送り、いま表示中の
+		// 予定のうち先頭（左上の時刻付きの枠）を firingDurationMs のあいだ光らせる。
+		// MMM-R5 の制御エンドポイントと同じく ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
+		// `?style=1〜5` で光り方の案を、`?sec=6` で秒数を指定できる（既定は本番と同じ設定値）。
+		this.expressApp.get("/MMM-OshiCal/test-blink", (req, res) => {
+			const style = Number(req.query.style) || 0;
+			const sec = Number(req.query.sec) || 0;
+			this.sendSocketNotification("OSHICAL_TEST_BLINK", { style, sec });
+			res.json({ ok: true, style, sec });
+		});
+	},
+
 	socketNotificationReceived(notification, payload) {
 		if (notification !== "OSHICAL_FETCH") return;
 		this.fetchAndParse(payload.icsUrl, payload.maxEntries || 20, payload.debugNow || "");
@@ -30,7 +45,7 @@ module.exports = NodeHelper.create({
 		this.sendSocketNotification("OSHICAL_EVENTS", { days });
 	},
 
-	// 返り値: [{ num, today, label, events:[{time,name,title,live}], total }] を日付の昇順で。
+	// 返り値: [{ num, today, label, events:[{time,name,title,live,ms}], total }] を日付の昇順で。
 	// num は YYYYMMDD（数値。並べ替え用）、total はその日の実件数（events は maxEntries で切る）。
 	// today は「その日が今日か」。今日の予定がゼロだと先頭が未来の日になるので、
 	// front が「配列の先頭＝今日」と決め打ちできない（日付セル無し・今日の色で描いてしまう）。
@@ -86,7 +101,10 @@ module.exports = NodeHelper.create({
 				today: num === todayNum,
 				label: this.dayLabel(num),
 				total: all.length,
-				events: all.slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title, live: !!e.live })),
+				// ms（開始時刻のエポックミリ秒）は front が「開始ちょうどに枠を点滅させる」タイマーを
+				// 張るのに使う。"19:30" という文字列からは日付をまたいだ瞬間に復元できない
+				// （今日の 19:30 か明日の 19:30 か区別が付かない）ため、生値をそのまま渡す。終日は 0。
+				events: all.slice(0, maxEntries).map((e) => ({ time: e.time, name: e.name, title: e.title, live: !!e.live, ms: e.ms })),
 			});
 			acc += all.length + (num === todayNum ? 0 : 1); // 今日以外は日付セルが1枠使う
 			if (acc >= maxEntries) break;

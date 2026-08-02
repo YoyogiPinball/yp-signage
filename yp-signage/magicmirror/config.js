@@ -93,6 +93,12 @@ let config = {
 							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
 							columns: oshiCols, // 予定の列数（front が body class x13-cols-N に反映）
 							debugNow: oshiNow, // デバッグ現在時刻（空なら実時刻）
+							// 配信の開始時刻ちょうどに、その予定の枠を60秒だけ光らせる。
+							// firingStyle は光り方（CSS の f1〜f5）。4 = 0.9秒周期のはっきりした明滅。
+							// ゆっくり変化する案（1〜3・5）は視界の端だと目が慣れて気づけないため、
+							// 「点いて消える」動きのある 4 を選んでいる。見比べは `mm-ctl.sh blink 3` 等で。
+							firingDurationMs: 60 * 1000,
+							firingStyle: 4,
 						},
 					},
 			  ]

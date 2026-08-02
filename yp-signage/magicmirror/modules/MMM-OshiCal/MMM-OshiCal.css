@@ -142,3 +142,122 @@
 	/* custom.css の .module.r5-plate * { color:#fff !important } に勝たせる。 */
 	color: #ffc38f !important;
 }
+
+/* 開始時刻ちょうどから60秒だけ、その予定の枠を光らせる（front の firingDurationMs）。
+ * ポップアップを出さない方式なので画面は何も覆わない。その代わり、視界の端に置いた
+ * サイネージでも動きで気づけるだけの強さが要る。
+ *
+ * 強さの違う5案を f1〜f5 として持たせてある（config の firingStyle で選ぶ。既定 1）。
+ * 見比べは `bash ~/run/mm-ctl.sh blink 3` のように実機で行う。
+ * どの案も「行の高さを動かさない」ことだけは共通の制約にしている。高さが動くと隣の枠まで
+ * 押し出されて、バー全体が揺れたように見えるため。そのため枠線ではなく outline と
+ * 背景・transform で強さを作る（outline は場所を取らない。border は取る）。
+ * 配信中（.oc-live のオレンジ）と同時に当たることが多いので、色は黄寄りに離してある。
+ * **この節は .oc-live より後ろに置くこと。** 詳細度が同じ（0,3,0）なので、前に置くと
+ * 左バーの色を .oc-live のオレンジに上書きされる。点滅するのは「たった今始まった配信」＝
+ * ほぼ必ず .oc-live が同時に当たっている枠なので、順番を戻すと金色のバーが一切出なくなる。 */
+.MMM-OshiCal .oc-item.oc-firing {
+	border-left-width: 5px;
+	border-left-color: #ffd166;
+	border-radius: 2px;
+}
+.MMM-OshiCal .oc-firing .oc-who {
+	/* custom.css の `.module.r5-plate * { color:#fff !important }` に勝たせる。 */
+	color: #ffe3a3 !important;
+}
+
+/* f1: 控えめ。背景がゆっくり脈打つだけ（当初の実装＝現行の既定）。 */
+.MMM-OshiCal .oc-firing.f1 {
+	animation: oc-fire-1 1.6s ease-in-out infinite;
+}
+@keyframes oc-fire-1 {
+	0%,
+	100% {
+		background: rgba(255, 209, 102, 0.08);
+		box-shadow: 0 0 0 rgba(255, 209, 102, 0);
+	}
+	50% {
+		background: rgba(255, 209, 102, 0.34);
+		box-shadow: 0 0 14px rgba(255, 209, 102, 0.45);
+	}
+}
+
+/* f2: f1 を濃くしただけ。同じ性格のまま音量だけ上げたい場合。 */
+.MMM-OshiCal .oc-firing.f2 {
+	border-left-width: 7px;
+	animation: oc-fire-2 1.6s ease-in-out infinite;
+}
+@keyframes oc-fire-2 {
+	0%,
+	100% {
+		background: rgba(255, 209, 102, 0.18);
+		box-shadow: 0 0 6px rgba(255, 209, 102, 0.25);
+	}
+	50% {
+		background: rgba(255, 209, 102, 0.62);
+		box-shadow: 0 0 26px rgba(255, 209, 102, 0.75);
+	}
+}
+
+/* f3: 枠を全周で囲む。左バーだけだと「並んだ列のひとつ」に見えるので、
+ * 囲うことで1枠だけが浮いて見える。outline を使うのは場所を取らないため。 */
+.MMM-OshiCal .oc-firing.f3 {
+	animation: oc-fire-3 1.6s ease-in-out infinite;
+}
+@keyframes oc-fire-3 {
+	0%,
+	100% {
+		background: rgba(255, 209, 102, 0.10);
+		outline: 2px solid rgba(255, 209, 102, 0.35);
+		outline-offset: 1px;
+	}
+	50% {
+		background: rgba(255, 209, 102, 0.45);
+		outline: 3px solid rgba(255, 209, 102, 1);
+		outline-offset: 2px;
+	}
+}
+
+/* f4: はっきり点いて消える明滅。脈動と違い「動いた」ことに気づきやすい代わりに、
+ * 60秒間ずっとちらつく。長時間だとうるさく感じる可能性がある。 */
+.MMM-OshiCal .oc-firing.f4 {
+	border-left-width: 7px;
+	animation: oc-fire-4 0.9s steps(1, end) infinite;
+}
+@keyframes oc-fire-4 {
+	0%,
+	49% {
+		background: rgba(255, 209, 102, 0.62);
+		box-shadow: 0 0 22px rgba(255, 209, 102, 0.7);
+	}
+	50%,
+	100% {
+		background: rgba(255, 209, 102, 0.04);
+		box-shadow: 0 0 0 rgba(255, 209, 102, 0);
+	}
+}
+
+/* f5: 反転。金色でベタ塗りし、文字を黒に落とす。この5案でいちばん強い。
+ * 背景は薄くしきらない（0.72〜0.96 の範囲で呼吸させる）。薄くすると黒文字が読めなくなるため。 */
+.MMM-OshiCal .oc-firing.f5 {
+	border-left-color: #fff0c4;
+	border-left-width: 7px;
+	animation: oc-fire-5 1.6s ease-in-out infinite;
+}
+.MMM-OshiCal .oc-firing.f5 .oc-who,
+.MMM-OshiCal .oc-firing.f5 .oc-sub,
+.MMM-OshiCal .oc-firing.f5 .oc-badge {
+	color: #241a05 !important;
+	text-shadow: none;
+}
+@keyframes oc-fire-5 {
+	0%,
+	100% {
+		background: rgba(255, 209, 102, 0.72);
+		box-shadow: 0 0 10px rgba(255, 209, 102, 0.4);
+	}
+	50% {
+		background: rgba(255, 224, 150, 0.96);
+		box-shadow: 0 0 30px rgba(255, 209, 102, 0.9);
+	}
+}
