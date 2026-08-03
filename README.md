@@ -1,4 +1,4 @@
-> 最終更新: 2026-08-03（Mon）23:00
+> 最終更新: 2026-08-03（Mon）23:08
 
 # yp-signage — ThinkPad X13 の縦置きサイネージ
 
@@ -30,7 +30,9 @@ yp-signage/
 │   ├── mm-ctl.sh          # スライド送り・一時停止・点滅テスト
 │   ├── mm-fix-sandbox.sh  # Electron chrome-sandbox の権限修正 (初回のみ)
 │   ├── mm-shot.sh         # 現在表示を1枚 PNG に撮る（~/signage/shots/ へ）
-│   └── mm-shot.py         # mm-shot.sh が使う Mutter ScreenCast キャプチャ本体
+│   ├── mm-shot.py         # mm-shot.sh が使う Mutter ScreenCast キャプチャ本体
+│   ├── mm-shot.js         # 旧方式（Electron で開き直す）。現在は未使用だが配布はされる
+│   └── README.md          # ~/run/ の説明（X13 側に置かれる）
 ├── legacy/                # 旧構成。配布対象外。MM が起動しない時の退避手段として保管
 │   ├── r5.sh              # feh によるスライドショー
 │   ├── signage-*.sh       # mpv によるスライドショー / Sway 版
@@ -128,16 +130,25 @@ ssh セッションの scope から切り離されるため、ssh を切って�
 
 ### 画面のスクショを撮る
 
-母艦から X13 のサイネージ表示を1枚 PNG に撮れる。稼働中の画面には触れず、別プロセスの Electron で
-`localhost:8080`（MM 本体）を隠しウィンドウで開いてキャプチャするので、実機と同じフォント・同じ絵が得られる。
+母艦から X13 のサイネージ表示を1枚 PNG に撮れる。実際に映っている画面をそのまま取るので、
+実機で見えているとおりの絵が得られる。
 
 ```bash
 ssh x13 'bash ~/run/mm-shot.sh'   # ~/signage/shots/<yyyymmddhhmmss>.png に保存
+
+# 出力先を指定する
+ssh x13 'SHOT_OUT=~/signage/shots/x.png bash ~/run/mm-shot.sh'
+# 特定のモニタを狙う（既定は Mutter に問い合わせて自動判定）
+ssh x13 'SHOT_CONNECTOR=HDMI-2 bash ~/run/mm-shot.sh'
 ```
 
 > **Note:** GNOME (Wayland) の D-Bus スクショは新しめの GNOME で拒否され、XWayland の X11 root grab は
-> 合成後の画面が入らず真っ黒になる。どちらも使えないため、MM が配信している Web ページを Electron で
-> 開き直して撮る方式にしている。描画待ちが足りず黒く写るときは `SHOT_WAIT`（ミリ秒）を伸ばす。
+> 合成後の画面が入らず真っ黒になる。どちらも使えないため、`mm-shot.sh` は `mm-shot.py` を呼び、
+> Mutter の ScreenCast を D-Bus 経由で開始して、実画面の PipeWire ストリームから1フレームだけ取る。
+> どのモニタを撮るかは毎回 `Mutter.DisplayConfig` に問い合わせるので、ケーブルを挿し替えても直す必要がない。
+
+> **Note:** `scripts/mm-shot.js` は Electron で `localhost:8080` を隠しウィンドウで開き直す**旧方式**。
+> 現在の `mm-shot.sh` からは呼ばれていないが、配布対象には残っている（`SHOT_WAIT` はこちらの環境変数）。
 
 ## 画像同期 (sync-images.sh)
 
@@ -279,7 +290,7 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 
 | ソース (WSL) | 配布先 (X13) |
 |---|---|
-| `scripts/*.sh` | `~/run/` |
+| `scripts/`（`*.sh` と `mm-shot.py` / `mm-shot.js` / `README.md`） | `~/run/` |
 | `magicmirror/config.js` | `~/MagicMirror/config/config.js` |
 | `magicmirror/.env` | `~/MagicMirror/.env`（config/ ではなくルート） |
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
@@ -290,13 +301,22 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 `legacy/` は配布対象外。X13 側に残っている旧 `~/r5.sh` や `~/run/signage-*.sh` は今後更新されない。
 
 `host/monitors.xml` は GNOME が随時上書きするファイルなので、deploy.sh では配布しない。
-変更したいときは手動で `~/.config/monitors.xml` にコピーする。
+
+> **Warning:** このファイルは**実機側が正本**で、リポジトリのものは写し（バックアップ）。
+> 変更するときは X13 の［設定］→［ディスプレイ］で操作し、結果をこちらへ吸い上げる。
+>
+> ```bash
+> scp x13:~/.config/monitors.xml ~/Batches/yp-signage/host/monitors.xml
+> ```
+>
+> **逆向きに上書きしないこと。** 実機にしか無い構成が消え、画面の向きを見失う。
 
 ## 経緯メモ
 
 旧構成では mpv や feh でスライドショーを流していた（`legacy/signage-start.sh`, `同 r5.sh`）。
 MagicMirror² に移行して時計やカレンダーを重ねられるようにした。
-Sway への移行も検討したが (`host/sway/config`)、現状は GNOME (Wayland) + XWayland 構成で安定稼働中。
+Sway への移行も検討したが、2026-07-18 に却下し、GNOME (Wayland) + XWayland 構成で安定稼働中。
+検証用の Sway 設定は 2026-08-03 のリポジトリ再編で削除した（履歴は vault `40-Projects/X13/core/sway-migration.md`）。
 
 ## 接続情報
 

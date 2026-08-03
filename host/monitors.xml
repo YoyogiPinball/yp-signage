@@ -3,7 +3,7 @@
 
        これは実機からの写し（2026-07-25 取得）。正本は実機側で、GNOME が随時上書きする。
        編集したいときは X13 の［設定］→［ディスプレイ］で操作し、結果をここへ吸い上げる:
-         scp x13:~/.config/monitors.xml ~/Batches/x13/host/gnome/monitors.xml
+         scp x13:~/.config/monitors.xml ~/Batches/yp-signage/host/monitors.xml
        逆向き（ここから実機へ上書き）はしないこと。実機にしか無い構成を消すと画面の向きを見失う。
        deploy.sh でも自動配布しない。
 

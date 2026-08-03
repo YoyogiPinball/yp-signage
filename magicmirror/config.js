@@ -1,5 +1,5 @@
 /* MagicMirror² config — X13 サイネージ構成
- * 正本: ~/Batches/x13/yp-signage/magicmirror/config.js → 配布先 ~/MagicMirror/config/config.js
+ * 正本: ~/Batches/yp-signage/magicmirror/config.js → 配布先 ~/MagicMirror/config/config.js
  *
  * 設定値は .env（配布先では ~/MagicMirror/.env）から読む。このファイルを開かずに
  * 解像度・表示秒数・iCal URL を変えられるようにするため。項目の一覧は .env.example。
