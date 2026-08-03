@@ -1,19 +1,18 @@
 #!/bin/bash
-# ~/Batches/x13/ を X13 へ配布する（master → X13）
+# yp-signage を X13 へ配布する（master → X13）
 #
 # 使い方: ./deploy.sh [ターゲット]
-#   signage : yp-signage/（MagicMirror 設定・自作モジュール・起動スクリプト）※既定
+#   signage : MagicMirror 設定・自作モジュール・起動スクリプト一式 ※既定
 #
-# 配布単位をターゲットで分けているのは、無関係な変更で MagicMirror の
-# config.js を上書きして再起動を強いられるのを避けるため。
-# 定期ジョブ等を足すときは deploy_<名前>() を書いて case に1行足す。
+# ターゲット式を残しているのは、配布単位を分けたくなったときに
+# deploy_<名前>() を書いて case に1行足すだけで済むようにするため。
 set -e
 HOST=x13
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 deploy_signage() {
-	local D="$ROOT/yp-signage/scripts"
-	local MM="$ROOT/yp-signage/magicmirror"
+	local D="$ROOT/scripts"
+	local MM="$ROOT/magicmirror"
 
 	# --- 起動・停止スクリプト ---
 	ssh "$HOST" 'mkdir -p ~/run'
