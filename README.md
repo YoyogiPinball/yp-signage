@@ -1,4 +1,4 @@
-> 最終更新: 2026-08-04（Tue）00:52
+> 最終更新: 2026-08-04（Tue）00:59
 
 # yp-signage — ThinkPad X13 の縦置きサイネージ
 
@@ -21,9 +21,9 @@ yp-signage/
 │   ├── css/
 │   │   └── custom.css     # 白文字、ソフト黒フチ、半透明プレート (.r5-plate)
 │   └── modules/
-│       ├── MMM-R5/        # 自作: 背景全画面スライドショー
-│       ├── MMM-OshiCal/   # 自作: 推しスケの配信予定バー（今日→先の日へ）
-│       └── MMM-MonthCal/  # 自作: 月間カレンダー（祝日対応）
+│       ├── yp-slideshow/  # 自作: 背景全画面スライドショー
+│       ├── yp-oshical/    # 自作: 推しスケの配信予定バー（今日→先の日へ）
+│       └── yp-monthcal/   # 自作: 月間カレンダー（祝日対応）
 ├── scripts/               # X13 の ~/run/ へ配布する実行スクリプト
 │   ├── mm-start.sh        # MM を systemd user service で起動
 │   ├── mm-stop.sh         # MM を停止
@@ -207,7 +207,7 @@ cron だとその日の分は実行されずに飛ぶ。
 初回に `--size-only` で流した時点で 1,806 枚の時刻が**データ転送なしで**修復され、以降の実行は3秒・転送ゼロで終わる。
 
 > **Warning:** 退避先の `.trash/` は必ず `slides/` の**外**に置くこと。
-> 中に置くと MMM-R5 の再帰スキャンがゴミ箱の画像まで拾い、消したはずの画像がスライドショーに出続ける。
+> 中に置くと yp-slideshow の再帰スキャンがゴミ箱の画像まで拾い、消したはずの画像がスライドショーに出続ける。
 > 30日を超えた退避世代はスクリプト末尾で自動削除する。
 
 ## MagicMirror モジュール
@@ -219,10 +219,10 @@ config.js で3つのモジュールを配置している。
 右上に時計を表示。日付は `YYYY/MM/DD（dd）` 形式（dd は ja locale で漢字1文字の曜日）。
 `classes: "r5-plate"` で半透明ぼかしプレートを敷く。
 
-### MMM-R5 (自作: 背景スライドショー)
+### yp-slideshow (自作: 背景スライドショー)
 
 `position: "fullscreen_below"` で画面全体に画像を敷く。
-node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静的ルート `/MMM-R5/images` で配信する。
+node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静的ルート `/yp-slideshow/images` で配信する。
 `slides/r5/`・`slides/tate/` のようにフォルダを分けて置けば、すべてが1本の再生リストにまとまる。
 フォルダを増やしても設定変更は要らない。
 フロント側は URL 一覧を受け取り、60秒ごとにフェード切替（1200ms）でシャッフル巡回する。
@@ -235,7 +235,7 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 > URL 化するときは `encodeURIComponent()` を丸ごと掛けてはいけない。区切りの `/` まで `%2F` に変換され、
 > パスが壊れて画像が1枚も表示されなくなる。セグメントごとに符号化してから `/` で繋ぎ直すこと。
 
-### MMM-OshiCal (自作: 配信予定バー)
+### yp-oshical (自作: 配信予定バー)
 
 推しスケ (oshi-sche-webapp) の iCal フィードを 5分ごとに取得し、今から先の配信予定を2段カードで並べる。
 下バー全幅に配置。`classes: "r5-plate"` で半透明プレート付き。
@@ -281,7 +281,7 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 - `.module` に `text-shadow` でソフトな黒フチ
 - `.r5-plate` クラスで `backdrop-filter: blur(3px)` + 薄い黒背景の半透明プレート
 - `.r5-plate` 内の全要素を `color: #fff` + `opacity: 1` に統一（MM 既定の灰色階調を上書き）
-- `.MMM-R5` 自体は `text-shadow: none` で画像に影を載せない
+- `.yp-slideshow` 自体は `text-shadow: none` で画像に影を載せない
 
 ## 配布 (deploy.sh)
 
@@ -295,9 +295,9 @@ node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静
 | `magicmirror/config.js` | `~/MagicMirror/config/config.js` |
 | `magicmirror/.env` | `~/MagicMirror/.env`（config/ ではなくルート） |
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
-| `magicmirror/modules/MMM-R5/*` | `~/MagicMirror/modules/MMM-R5/` |
-| `magicmirror/modules/MMM-OshiCal/*` | `~/MagicMirror/modules/MMM-OshiCal/` |
-| `magicmirror/modules/MMM-MonthCal/*` | `~/MagicMirror/modules/MMM-MonthCal/` |
+| `magicmirror/modules/yp-slideshow/*` | `~/MagicMirror/modules/yp-slideshow/` |
+| `magicmirror/modules/yp-oshical/*` | `~/MagicMirror/modules/yp-oshical/` |
+| `magicmirror/modules/yp-monthcal/*` | `~/MagicMirror/modules/yp-monthcal/` |
 
 `legacy/` は配布対象外。X13 側に残っている旧 `~/r5.sh` や `~/run/signage-*.sh` は今後更新されない。
 

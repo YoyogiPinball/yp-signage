@@ -20,7 +20,7 @@ deploy_signage() {
 	ssh "$HOST" 'chmod +x ~/run/*.sh ~/run/*.py'
 
 	# --- MagicMirror 設定・モジュール ---
-	ssh "$HOST" 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/MMM-R5 ~/MagicMirror/modules/MMM-OshiCal ~/MagicMirror/modules/MMM-MonthCal ~/MagicMirror/css'
+	ssh "$HOST" 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/yp-slideshow ~/MagicMirror/modules/yp-oshical ~/MagicMirror/modules/yp-monthcal ~/MagicMirror/css'
 	scp -q "$MM/config.js" "$HOST":'~/MagicMirror/config/config.js'
 	scp -q "$MM/css/custom.css" "$HOST":'~/MagicMirror/css/custom.css'
 	# 設定値と秘密情報は .env にまとめてある。config.js は process.loadEnvFile() で
@@ -31,9 +31,9 @@ deploy_signage() {
 	else
 		echo "警告: $MM/.env が無い（カレンダーと天気が出なくなる）。.env.example を参照して作成を"
 	fi
-	scp -q "$MM/modules/MMM-R5/MMM-R5.js" "$MM/modules/MMM-R5/node_helper.js" "$MM/modules/MMM-R5/MMM-R5.css" "$HOST":'~/MagicMirror/modules/MMM-R5/'
-	scp -q "$MM/modules/MMM-OshiCal/MMM-OshiCal.js" "$MM/modules/MMM-OshiCal/node_helper.js" "$MM/modules/MMM-OshiCal/MMM-OshiCal.css" "$HOST":'~/MagicMirror/modules/MMM-OshiCal/'
-	scp -q "$MM/modules/MMM-MonthCal/MMM-MonthCal.js" "$MM/modules/MMM-MonthCal/MMM-MonthCal.css" "$MM/modules/MMM-MonthCal/holidays.js" "$HOST":'~/MagicMirror/modules/MMM-MonthCal/'
+	scp -q "$MM/modules/yp-slideshow/yp-slideshow.js" "$MM/modules/yp-slideshow/node_helper.js" "$MM/modules/yp-slideshow/yp-slideshow.css" "$HOST":'~/MagicMirror/modules/yp-slideshow/'
+	scp -q "$MM/modules/yp-oshical/yp-oshical.js" "$MM/modules/yp-oshical/node_helper.js" "$MM/modules/yp-oshical/yp-oshical.css" "$HOST":'~/MagicMirror/modules/yp-oshical/'
+	scp -q "$MM/modules/yp-monthcal/yp-monthcal.js" "$MM/modules/yp-monthcal/yp-monthcal.css" "$MM/modules/yp-monthcal/holidays.js" "$HOST":'~/MagicMirror/modules/yp-monthcal/'
 
 	echo "yp-signage を X13 へ配布完了"
 }

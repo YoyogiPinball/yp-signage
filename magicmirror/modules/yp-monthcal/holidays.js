@@ -1,7 +1,7 @@
 /* 日本の祝日判定（依存ゼロ）。ブラウザ(front)と node(テスト)の両方で使える UMD 風。
  * 固定祝日 ＋ ハッピーマンデー ＋ 春分/秋分 ＋ 振替休日 ＋ 国民の休日 に対応。
- * 使い方: OshiHolidays.isHoliday(year, month[1-12], day) → true/false
- * 正本: ~/Batches/yp-signage/magicmirror/modules/MMM-MonthCal/holidays.js
+ * 使い方: YpHolidays.isHoliday(year, month[1-12], day) → true/false
+ * 正本: ~/Batches/yp-signage/magicmirror/modules/yp-monthcal/holidays.js
  */
 (function (root) {
 	// 曜日（0=日 .. 6=土）。X13(JST)のローカル時刻で判定する。
@@ -64,5 +64,5 @@
 
 	const api = { isHoliday, isBaseHoliday };
 	if (typeof module !== "undefined" && module.exports) module.exports = api;
-	else root.OshiHolidays = api;
+	else root.YpHolidays = api;
 })(typeof window !== "undefined" ? window : this);

@@ -1,4 +1,4 @@
-/* MMM-OshiCal — 「配信予定」2段カードのスタイル（今日のこれから＋明日）。
+/* yp-oshical — 「配信予定」2段カードのスタイル（今日のこれから＋明日）。
  * 白文字・プレート・画面端寄せは custom.css（.r5-plate / :root）側で共通適用。
  * ここはカード固有のレイアウト（時刻列の縦揃え・2段・読みやすいフチ）を持つ。
  */
@@ -8,12 +8,12 @@
  *          = 1.2行送り × 2段 + 上下padding 12px + 区切り線 1px。
  * .oc-list の外（空表示の .oc）からも参照するのでモジュール直下に置く。em ではなく
  * --oc-font 基準にしているのは、.oc-list の font-size が効かない位置でも同値にするため。 */
-.MMM-OshiCal {
+.yp-oshical {
 	--oc-font: 15px; /* ×1.15（13→15） */
 	--oc-row: calc(2.4 * var(--oc-font) + 13px);
 }
 
-.MMM-OshiCal .oc-list {
+.yp-oshical .oc-list {
 	display: grid;
 	grid-auto-flow: column; /* 列優先：上→下に埋めてから次の列へ（左の列ほど早い時刻） */
 	/* 列数・行数は front が inline で指定する。列は必要数だけ作る自動列ではなく明示
@@ -28,7 +28,7 @@
 /* 1件分のセル：時刻バッジ | 名前＋予定。
  * align-items: stretch で、時刻バッジを本文（名前＋予定の2行）の高さに合わせて伸ばす。 */
 /* 案B: 各行の左に時刻カラーの縦バー、下に薄い区切り線。padding で行間を作る。 */
-.MMM-OshiCal .oc-item {
+.yp-oshical .oc-item {
 	display: grid;
 	grid-template-columns: auto 1fr;
 	column-gap: 10px;
@@ -38,13 +38,13 @@
 	border-left: 3px solid #7fd4cc;
 	border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
-.MMM-OshiCal .oc-body {
+.yp-oshical .oc-body {
 	min-width: 0; /* 名前・予定の省略記号(…)を効かせるため */
 }
 
 /* 日の始まりに置く日付セル（例「07/28（火）」）。
  * 時刻｜本文の2列を持たない1枠なので display を上書きする。 */
-.MMM-OshiCal .oc-dayhead {
+.yp-oshical .oc-dayhead {
 	display: flex;
 	align-items: center;
 	font-weight: 700;
@@ -63,29 +63,29 @@
  * 日ごとに色を変えることはしない。日の区切りは日付セルが担っており、色数を増やすと
  * 「配信中（オレンジ）＝いま見るべき」の信号が埋もれるため、今日／それ以降の2色に留める。
  * 時刻テキストもバーに合わせる（片方だけ今日の青緑だとちぐはぐになるため）。 */
-.MMM-OshiCal .oc-dayhead,
-.MMM-OshiCal .oc-item.oc-next {
+.yp-oshical .oc-dayhead,
+.yp-oshical .oc-item.oc-next {
 	border-left-color: #8fb4e8;
 }
-.MMM-OshiCal .oc-next .oc-badge {
+.yp-oshical .oc-next .oc-badge {
 	color: #cfe0f7 !important;
 }
 
 /* まだ埋まっていない枠。中身は無く、区切り線と左バーだけを薄く出して枠の形を見せる。
  * 予定の件数で枠の見え方が変わらないようにするため、常に総枠数まで並べる。 */
-.MMM-OshiCal .oc-blank {
+.yp-oshical .oc-blank {
 	border-left-color: rgba(255, 255, 255, 0.22);
 }
 
 /* 「予定なし」「読み込み中」の知らせ。日付セルと同じ1段組みで、左バーは空枠に合わせる。 */
-.MMM-OshiCal .oc-notice {
+.yp-oshical .oc-notice {
 	border-left-color: rgba(255, 255, 255, 0.22);
 	color: rgba(255, 255, 255, 0.75) !important;
 	font-weight: 400;
 	letter-spacing: 0.02em;
 }
 
-.MMM-OshiCal .oc-badge {
+.yp-oshical .oc-badge {
 	/* 案B: 時刻はバッジをやめ、左アクセントと同じ青緑テキストに。
 	 * custom.css の `.module.r5-plate * { color:#fff !important }` に勝つため !important。 */
 	display: flex;
@@ -101,7 +101,7 @@
 		0 1px 2px #000;
 }
 
-.MMM-OshiCal .oc-who {
+.yp-oshical .oc-who {
 	font-weight: 700;
 	line-height: 1.2;
 	white-space: nowrap;
@@ -112,7 +112,7 @@
 /* 配信タイトルは従。半透明白＋細字で、主（配信者名＝不透明白の太字）と明度差をつける。
  * custom.css の `.module.r5-plate * { opacity:1 !important }` が opacity を潰すため、
  * opacity ではなく color の alpha で暗くする（こちらは潰されない）。!important で白統一に勝つ。 */
-.MMM-OshiCal .oc-sub {
+.yp-oshical .oc-sub {
 	line-height: 1.2;
 	white-space: nowrap;
 	overflow: hidden;
@@ -122,8 +122,8 @@
 }
 
 /* 可読性: ぼかしを効かせたソフト黒フチ（案Bは背景プレートが薄いのでフチを強める）。 */
-.MMM-OshiCal .oc-who,
-.MMM-OshiCal .oc-sub {
+.yp-oshical .oc-who,
+.yp-oshical .oc-sub {
 	text-shadow:
 		0 0 3px #000,
 		0 0 3px #000,
@@ -132,13 +132,13 @@
 
 /* 配信中と思われる予定（開始済み・今と同じ時間帯）をオレンジで強調する。
  * 案B: バッジ背景は廃止したので、左バー・時刻テキスト・名前をオレンジに揃える。 */
-.MMM-OshiCal .oc-item.oc-live {
+.yp-oshical .oc-item.oc-live {
 	border-left-color: #ff9a3d;
 }
-.MMM-OshiCal .oc-badge.oc-live {
+.yp-oshical .oc-badge.oc-live {
 	color: #ffb454 !important;
 }
-.MMM-OshiCal .oc-live .oc-who {
+.yp-oshical .oc-live .oc-who {
 	/* custom.css の .module.r5-plate * { color:#fff !important } に勝たせる。 */
 	color: #ffc38f !important;
 }
@@ -156,18 +156,18 @@
  * **この節は .oc-live より後ろに置くこと。** 詳細度が同じ（0,3,0）なので、前に置くと
  * 左バーの色を .oc-live のオレンジに上書きされる。点滅するのは「たった今始まった配信」＝
  * ほぼ必ず .oc-live が同時に当たっている枠なので、順番を戻すと金色のバーが一切出なくなる。 */
-.MMM-OshiCal .oc-item.oc-firing {
+.yp-oshical .oc-item.oc-firing {
 	border-left-width: 5px;
 	border-left-color: #ffd166;
 	border-radius: 2px;
 }
-.MMM-OshiCal .oc-firing .oc-who {
+.yp-oshical .oc-firing .oc-who {
 	/* custom.css の `.module.r5-plate * { color:#fff !important }` に勝たせる。 */
 	color: #ffe3a3 !important;
 }
 
 /* f1: 控えめ。背景がゆっくり脈打つだけ（当初の実装＝現行の既定）。 */
-.MMM-OshiCal .oc-firing.f1 {
+.yp-oshical .oc-firing.f1 {
 	animation: oc-fire-1 1.6s ease-in-out infinite;
 }
 @keyframes oc-fire-1 {
@@ -183,7 +183,7 @@
 }
 
 /* f2: f1 を濃くしただけ。同じ性格のまま音量だけ上げたい場合。 */
-.MMM-OshiCal .oc-firing.f2 {
+.yp-oshical .oc-firing.f2 {
 	border-left-width: 7px;
 	animation: oc-fire-2 1.6s ease-in-out infinite;
 }
@@ -201,7 +201,7 @@
 
 /* f3: 枠を全周で囲む。左バーだけだと「並んだ列のひとつ」に見えるので、
  * 囲うことで1枠だけが浮いて見える。outline を使うのは場所を取らないため。 */
-.MMM-OshiCal .oc-firing.f3 {
+.yp-oshical .oc-firing.f3 {
 	animation: oc-fire-3 1.6s ease-in-out infinite;
 }
 @keyframes oc-fire-3 {
@@ -220,7 +220,7 @@
 
 /* f4: はっきり点いて消える明滅。脈動と違い「動いた」ことに気づきやすい代わりに、
  * 60秒間ずっとちらつく。長時間だとうるさく感じる可能性がある。 */
-.MMM-OshiCal .oc-firing.f4 {
+.yp-oshical .oc-firing.f4 {
 	border-left-width: 7px;
 	animation: oc-fire-4 0.9s steps(1, end) infinite;
 }
@@ -239,14 +239,14 @@
 
 /* f5: 反転。金色でベタ塗りし、文字を黒に落とす。この5案でいちばん強い。
  * 背景は薄くしきらない（0.72〜0.96 の範囲で呼吸させる）。薄くすると黒文字が読めなくなるため。 */
-.MMM-OshiCal .oc-firing.f5 {
+.yp-oshical .oc-firing.f5 {
 	border-left-color: #fff0c4;
 	border-left-width: 7px;
 	animation: oc-fire-5 1.6s ease-in-out infinite;
 }
-.MMM-OshiCal .oc-firing.f5 .oc-who,
-.MMM-OshiCal .oc-firing.f5 .oc-sub,
-.MMM-OshiCal .oc-firing.f5 .oc-badge {
+.yp-oshical .oc-firing.f5 .oc-who,
+.yp-oshical .oc-firing.f5 .oc-sub,
+.yp-oshical .oc-firing.f5 .oc-badge {
 	color: #241a05 !important;
 	text-shadow: none;
 }

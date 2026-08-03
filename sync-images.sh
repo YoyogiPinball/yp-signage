@@ -6,7 +6,7 @@
 #
 # 正本は Windows 側。X13 の ~/signage/slides/ をその鏡にする。
 # 元で消えたファイルは X13 でも消すが、実体は ~/signage/.trash/<日付>/ へ退避する。
-# 退避先を slides/ の外に置いているのは、MMM-R5 が slides/ 以下を再帰スキャンするため。
+# 退避先を slides/ の外に置いているのは、yp-slideshow が slides/ 以下を再帰スキャンするため。
 # 中に置くと「消したはずの画像」がスライドショーに出続ける。
 set -euo pipefail
 

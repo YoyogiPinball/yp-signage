@@ -1,4 +1,4 @@
-/* MMM-OshiCal node_helper — 推しスケ ICS を取得し「今から先の予定」を日ごとに整形して front へ返す。
+/* yp-oshical node_helper — 推しスケ ICS を取得し「今から先の予定」を日ごとに整形して front へ返す。
  * MM の組み込み calendar では2段カード（名前/予定を別部品・時刻列を縦揃え）が作れないため自作。
  * ICS は行がシンプル（VEVENT ごとに SUMMARY / DTSTART / DTEND）なので依存無しで手解析する。
  * 時刻付きは DTSTART:...Z（UTC）運用のため JST(+9h) に変換。終日は VALUE=DATE。
@@ -16,20 +16,20 @@ module.exports = NodeHelper.create({
 	start() {
 		// 点滅を手で起こすための確認用エンドポイント。
 		// 本番の点滅は配信の開始時刻ちょうどにしか起きず、待たないと目視確認ができない。
-		// `curl localhost:8080/MMM-OshiCal/test-blink` で front に合図を送り、いま表示中の
+		// `curl localhost:8080/yp-oshical/test-blink` で front に合図を送り、いま表示中の
 		// 予定のうち先頭（左上の時刻付きの枠）を firingDurationMs のあいだ光らせる。
-		// MMM-R5 の制御エンドポイントと同じく ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
+		// yp-slideshow の制御エンドポイントと同じく ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
 		// `?style=1〜5` で光り方の案を、`?sec=6` で秒数を指定できる（既定は本番と同じ設定値）。
-		this.expressApp.get("/MMM-OshiCal/test-blink", (req, res) => {
+		this.expressApp.get("/yp-oshical/test-blink", (req, res) => {
 			const style = Number(req.query.style) || 0;
 			const sec = Number(req.query.sec) || 0;
-			this.sendSocketNotification("OSHICAL_TEST_BLINK", { style, sec });
+			this.sendSocketNotification("YP_OSHICAL_TEST_BLINK", { style, sec });
 			res.json({ ok: true, style, sec });
 		});
 	},
 
 	socketNotificationReceived(notification, payload) {
-		if (notification !== "OSHICAL_FETCH") return;
+		if (notification !== "YP_OSHICAL_FETCH") return;
 		this.fetchAndParse(payload.icsUrl, payload.maxEntries || 20, payload.debugNow || "");
 	},
 
@@ -40,9 +40,9 @@ module.exports = NodeHelper.create({
 			const text = await res.text();
 			days = this.parseIcs(text, maxEntries, debugNow);
 		} catch (e) {
-			console.error(`[MMM-OshiCal] 取得/解析エラー: ${e.message}`);
+			console.error(`[yp-oshical] 取得/解析エラー: ${e.message}`);
 		}
-		this.sendSocketNotification("OSHICAL_EVENTS", { days });
+		this.sendSocketNotification("YP_OSHICAL_EVENTS", { days });
 	},
 
 	// 返り値: [{ num, today, label, events:[{time,name,title,live,ms}], total }] を日付の昇順で。

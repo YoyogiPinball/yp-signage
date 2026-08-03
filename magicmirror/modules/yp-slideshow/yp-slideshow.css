@@ -1,4 +1,4 @@
-/* MMM-R5 — 全画面背景スライドショー用スタイル。
+/* yp-slideshow — 全画面背景スライドショー用スタイル。
  * config で position: "fullscreen_below" に置く前提。画面いっぱいに1枚を表示する。
  * object-fit: contain で切れないように収める（背景は黒でレターボックス）。
  */

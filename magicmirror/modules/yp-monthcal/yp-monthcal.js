@@ -1,15 +1,15 @@
-/* MMM-MonthCal — よくある月グリッドのカレンダー（自作）。
+/* yp-monthcal — よくある月グリッドのカレンダー（自作）。
  * 予定は出さず、当月のグリッドだけを描く。土曜=青・日祝=赤。今日は丸ハイライト。
  * 祝日判定は holidays.js（依存ゼロ・振替/国民の休日対応）を getScripts で読み込む。
  * 外部データ不要なので node_helper は持たない（ローカル日付だけで完結）。
- * 配布先: ~/MagicMirror/modules/MMM-MonthCal/
+ * 配布先: ~/MagicMirror/modules/yp-monthcal/
  */
-Module.register("MMM-MonthCal", {
+Module.register("yp-monthcal", {
 	defaults: {
 		updateInterval: 30 * 60 * 1000, // 30分ごとに再描画（日付跨ぎ・今日ハイライトの更新）
 	},
 
-	getStyles() { return ["MMM-MonthCal.css"]; },
+	getStyles() { return ["yp-monthcal.css"]; },
 	getScripts() { return [this.file("holidays.js")]; },
 
 	start() {
@@ -37,7 +37,7 @@ Module.register("MMM-MonthCal", {
 
 	// y年m月のミニカレンダー（見出し＋グリッド）を作る。today に一致する日だけ丸ハイライト。
 	makeMonth(y, m, today) {
-		const H = window.OshiHolidays;
+		const H = window.YpHolidays;
 		const month = document.createElement("div");
 		month.className = "mc-month";
 

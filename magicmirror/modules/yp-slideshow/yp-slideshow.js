@@ -1,10 +1,10 @@
-/* MMM-R5 — ~/signage/slides 以下の画像を巡回表示する自作スライドショー。
+/* yp-slideshow — ~/signage/slides 以下の画像を巡回表示する自作スライドショー。
  * MMM-ImageSlideshow を参考にした最小実装。画像の実体は node_helper が
- * /MMM-R5/images で静的配信し、ここではその URL を順に差し替えて表示する。
+ * /yp-slideshow/images で静的配信し、ここではその URL を順に差し替えて表示する。
  * フェードは MM 標準の updateDom(speed) に任せる（モジュール領域ごと淡く切替）。
- * 配布先: ~/MagicMirror/modules/MMM-R5/
+ * 配布先: ~/MagicMirror/modules/yp-slideshow/
  */
-Module.register("MMM-R5", {
+Module.register("yp-slideshow", {
 	defaults: {
 		imageDir: null, // null なら node_helper 側の既定 ~/signage/slides（サブフォルダも再帰で拾う）
 		logPath: null, // 表示履歴の書き出し先。null なら node_helper 側の既定 ~/signage/r5-now.log
@@ -15,7 +15,7 @@ Module.register("MMM-R5", {
 	},
 
 	getStyles() {
-		return ["MMM-R5.css"];
+		return ["yp-slideshow.css"];
 	},
 
 	start() {
@@ -45,7 +45,7 @@ Module.register("MMM-R5", {
 		if (!this.paused) this.scheduleNext();
 	},
 
-	// node_helper の /MMM-R5/control/<cmd> から届く外部操作を捌く。
+	// node_helper の /yp-slideshow/control/<cmd> から届く外部操作を捌く。
 	control(cmd) {
 		switch (cmd) {
 			case "pause":
@@ -79,18 +79,18 @@ Module.register("MMM-R5", {
 	requestImages() {
 		// 置き場所の設定（imageDir / logPath）はここでまとめて helper へ渡す。helper は
 		// ディスクを触る側なので、パスの既定値も helper 側が持つ（null なら既定に落ちる）。
-		this.sendSocketNotification("MMM_R5_GET_IMAGES", {
+		this.sendSocketNotification("YP_SLIDESHOW_GET_IMAGES", {
 			imageDir: this.config.imageDir,
 			logPath: this.config.logPath,
 		});
 	},
 
 	socketNotificationReceived(notification, payload) {
-		if (notification === "MMM_R5_CONTROL") {
+		if (notification === "YP_SLIDESHOW_CONTROL") {
 			this.control(payload.cmd);
 			return;
 		}
-		if (notification !== "MMM_R5_IMAGES") return;
+		if (notification !== "YP_SLIDESHOW_IMAGES") return;
 		// 差し替える前に「今画面に出している画像」を控えておく。
 		const current = this.images[this.index] || null;
 		this.images = this.mergeImages(payload.images || []);
@@ -167,7 +167,7 @@ Module.register("MMM-R5", {
 			this.lastLogged = this.images[this.index];
 			// reason を添えて「なぜこの画像に変わったか」も残す。手動送りと自動送りが
 			// ログ上で区別できないと、prev/next の不具合を後から追えない。
-			this.sendSocketNotification("MMM_R5_NOW", { url: this.lastLogged, reason: this.reason });
+			this.sendSocketNotification("YP_SLIDESHOW_NOW", { url: this.lastLogged, reason: this.reason });
 		}
 
 		// この getDom が出す1枚。以降 index を読み直さず shown を使う（onerror が
@@ -189,7 +189,7 @@ Module.register("MMM-R5", {
 			// 失敗通知が遅れて届いたときに index を余計に進めないよう、今出している
 			// 画像ぶんだけを拾う（連打すると2枚飛ぶのを防ぐ）。
 			if (this.images[this.index] !== shown) return;
-			this.sendSocketNotification("MMM_R5_BROKEN", { url: shown }); // ログ上の該当行に印を付ける
+			this.sendSocketNotification("YP_SLIDESHOW_BROKEN", { url: shown }); // ログ上の該当行に印を付ける
 			if (this.images.length > 1) {
 				this.reason = "alt"; // 壊れた画像の代わりに出した1枚
 				this.index = (this.index + 1) % this.images.length;

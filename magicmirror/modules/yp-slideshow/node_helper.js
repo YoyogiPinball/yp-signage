@@ -1,6 +1,6 @@
-/* MMM-R5 node_helper — 画像フォルダを再帰スキャンして静的配信する。
+/* yp-slideshow node_helper — 画像フォルダを再帰スキャンして静的配信する。
  * MM の本体(ブラウザ)はディスクを直接読めないため、express の静的ルート
- * /MMM-R5/images 以下でフォルダを公開し、フロントには URL 一覧を返す。
+ * /yp-slideshow/images 以下でフォルダを公開し、フロントには URL 一覧を返す。
  */
 const NodeHelper = require("node_helper");
 const express = require("express");
@@ -33,32 +33,32 @@ module.exports = NodeHelper.create({
 		this.logPath = DEFAULT_LOG; // config で上書きされるまでは既定の置き場所を使う
 		this.recent = []; // 表示履歴（末尾が最新）。MM 再起動で空に戻る
 		// 外部からスライドショーを操作する制御エンドポイント。
-		// `curl localhost:8080/MMM-R5/control/next` のように叩くと、その cmd を
-		// フロント(MMM-R5.js)へ内部通知し、pause/resume/next/prev を実行させる。
+		// `curl localhost:8080/yp-slideshow/control/next` のように叩くと、その cmd を
+		// フロント(yp-slideshow.js)へ内部通知し、pause/resume/next/prev を実行させる。
 		// ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
 		const ALLOWED = new Set(["pause", "resume", "toggle", "next", "prev", "topbar"]);
-		this.expressApp.get("/MMM-R5/control/:cmd", (req, res) => {
+		this.expressApp.get("/yp-slideshow/control/:cmd", (req, res) => {
 			const cmd = req.params.cmd;
 			if (!ALLOWED.has(cmd)) {
 				return res.status(400).json({ ok: false, error: `unknown cmd: ${cmd}` });
 			}
-			this.sendSocketNotification("MMM_R5_CONTROL", { cmd });
+			this.sendSocketNotification("YP_SLIDESHOW_CONTROL", { cmd });
 			res.json({ ok: true, cmd });
 		});
 	},
 
-	// 指定フォルダを /MMM-R5/images で静的配信する（初回のみ登録。express.static は
+	// 指定フォルダを /yp-slideshow/images で静的配信する（初回のみ登録。express.static は
 	// 後から張り替えられないため、最初に受け取った imageDir を採用する）。
 	ensureRoute(imageDir) {
 		if (this.routeDir !== null) return;
-		this.expressApp.use("/MMM-R5/images", express.static(imageDir));
+		this.expressApp.use("/yp-slideshow/images", express.static(imageDir));
 		this.routeDir = imageDir;
 	},
 
-	// url は "/MMM-R5/images/r5/foo.png" 形式で符号化済み。復号は "/" を壊さないので
+	// url は "/yp-slideshow/images/r5/foo.png" 形式で符号化済み。復号は "/" を壊さないので
 	// 全体に掛けてよい（符号化と違いセグメント分割は不要）。
 	toFile(url) {
-		return decodeURIComponent(String(url).replace("/MMM-R5/images/", ""));
+		return decodeURIComponent(String(url).replace("/yp-slideshow/images/", ""));
 	},
 
 	// 表示中の画像を時刻付きで r5-now.log に書き出す。直近ぶんをメモリに持って毎回
@@ -91,20 +91,20 @@ module.exports = NodeHelper.create({
 		try {
 			fs.writeFileSync(this.logPath, body + "\n");
 		} catch (e) {
-			console.error(`[MMM-R5] 表示履歴を書けません: ${this.logPath} (${e.message})`);
+			console.error(`[yp-slideshow] 表示履歴を書けません: ${this.logPath} (${e.message})`);
 		}
 	},
 
 	socketNotificationReceived(notification, payload) {
-		if (notification === "MMM_R5_NOW") {
+		if (notification === "YP_SLIDESHOW_NOW") {
 			this.recordNow(payload.url, payload.reason);
 			return;
 		}
-		if (notification === "MMM_R5_BROKEN") {
+		if (notification === "YP_SLIDESHOW_BROKEN") {
 			this.markBroken(payload.url);
 			return;
 		}
-		if (notification !== "MMM_R5_GET_IMAGES") return;
+		if (notification !== "YP_SLIDESHOW_GET_IMAGES") return;
 		const imageDir = payload.imageDir || DEFAULT_DIR;
 		this.logPath = payload.logPath || DEFAULT_LOG;
 		this.ensureRoute(imageDir);
@@ -120,10 +120,10 @@ module.exports = NodeHelper.create({
 				.sort()
 				// encodeURIComponent はセパレータの "/" まで %2F にしてしまい URL が壊れるので、
 				// セグメントごとに符号化してから "/" で繋ぎ直す。
-				.map((f) => "/MMM-R5/images/" + f.split("/").map(encodeURIComponent).join("/"));
+				.map((f) => "/yp-slideshow/images/" + f.split("/").map(encodeURIComponent).join("/"));
 		} catch (e) {
-			console.error(`[MMM-R5] 画像フォルダを読めません: ${imageDir} (${e.message})`);
+			console.error(`[yp-slideshow] 画像フォルダを読めません: ${imageDir} (${e.message})`);
 		}
-		this.sendSocketNotification("MMM_R5_IMAGES", { images });
+		this.sendSocketNotification("YP_SLIDESHOW_IMAGES", { images });
 	},
 });

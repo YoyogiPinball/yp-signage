@@ -42,13 +42,13 @@ if [ "$cmd" = "blink" ]; then
 	if [ -n "$sec" ]; then
 		if [ -n "$q" ]; then q="${q}&sec=${sec}"; else q="?sec=${sec}"; fi
 	fi
-	url="${BASE}/MMM-OshiCal/test-blink${q}"
+	url="${BASE}/yp-oshical/test-blink${q}"
 	names=("" "控えめ" "濃い" "全周を囲む" "はっきり明滅" "反転（最強）")
 	label=""
 	[ -n "$style" ] && label="案${style}（${names[$style]}）で "
 	msg="✨ ${label}先頭の枠を${sec:-60}秒間 光らせました"
 else
-	url="${BASE}/MMM-R5/control/${cmd}"
+	url="${BASE}/yp-slideshow/control/${cmd}"
 fi
 # X13 には curl が無い環境があるため wget にフォールバックする。
 if command -v curl >/dev/null 2>&1; then

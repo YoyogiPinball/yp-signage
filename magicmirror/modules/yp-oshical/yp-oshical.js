@@ -1,4 +1,4 @@
-/* MMM-OshiCal — 推しスケの「今から先の配信予定」を2段カードで表示する自作モジュール。
+/* yp-oshical — 推しスケの「今から先の配信予定」を2段カードで表示する自作モジュール。
  * データは node_helper が ICS を取得・整形して渡す（日ごとの配列）。
  * 描画は grid 1本で「時刻バッジ｜名前(太字)＋予定(下段)」を組み、時刻列を縦に揃える。
  * 列は上→下に埋めて右へ流れる（列優先）。今日ぶんに続けて翌日以降を流し込み、
@@ -6,9 +6,9 @@
  * 枠は件数に関わらず常に cols × rows ぶん引く（少ない日に形が変わらないように）。
  * 開始時刻ちょうどに、その予定の枠だけを firingDurationMs の間ふわっと点滅させる
  * （ポップアップは出さない。画面を覆わずに「今これが始まった」を知らせるため）。
- * 配布先: ~/MagicMirror/modules/MMM-OshiCal/
+ * 配布先: ~/MagicMirror/modules/yp-oshical/
  */
-Module.register("MMM-OshiCal", {
+Module.register("yp-oshical", {
 	defaults: {
 		icsUrl: "", // 推しスケ iCal（config.js が .env の SIGNAGE_CALENDAR_ICS から渡す）
 		maxEntries: 20, // 表示上限。列数で割った値が行数になる
@@ -21,7 +21,7 @@ Module.register("MMM-OshiCal", {
 	},
 
 	getStyles() {
-		return ["MMM-OshiCal.css"];
+		return ["yp-oshical.css"];
 	},
 
 	start() {
@@ -38,7 +38,7 @@ Module.register("MMM-OshiCal", {
 	},
 
 	requestEvents() {
-		this.sendSocketNotification("OSHICAL_FETCH", {
+		this.sendSocketNotification("YP_OSHICAL_FETCH", {
 			icsUrl: this.config.icsUrl,
 			maxEntries: this.config.maxEntries, // これを超えた日は helper 側で収集を打ち切る
 			debugNow: this.config.debugNow || "", // デバッグ現在時刻（空なら実時刻）
@@ -48,7 +48,7 @@ Module.register("MMM-OshiCal", {
 	socketNotificationReceived(notification, payload) {
 		// 確認用: 開始時刻を待たずに点滅を起こす（`bash ~/run/mm-ctl.sh blink`）。
 		// 本番の発火と違い fired には入れない。入れると、その予定が本来の開始時刻に光らなくなる。
-		if (notification === "OSHICAL_TEST_BLINK") {
+		if (notification === "YP_OSHICAL_TEST_BLINK") {
 			const ev = this.days.flatMap((d) => d.events).find((e) => e.ms);
 			if (!ev) return;
 			const ms = (payload && payload.sec ? payload.sec * 1000 : 0) || this.config.firingDurationMs || 60000;
@@ -56,7 +56,7 @@ Module.register("MMM-OshiCal", {
 			this.beginFiring(this.eventKey(ev), Date.now() + ms, false, style);
 			return;
 		}
-		if (notification !== "OSHICAL_EVENTS") return;
+		if (notification !== "YP_OSHICAL_EVENTS") return;
 		this.days = payload.days || [];
 		this.loaded = true;
 		this.scheduleFiring();

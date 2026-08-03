@@ -74,7 +74,7 @@ let config = {
 		// imageDir / logPath は空ならモジュール側の既定（~/signage/... ）に落ちる。ホームの位置は
 		// 環境で変わるため、決め打ちの絶対パスをここに書かない。
 		{
-			module: "MMM-R5",
+			module: "yp-slideshow",
 			position: "fullscreen_below",
 			config: {
 				imageDir: str(env.SIGNAGE_IMAGE_DIR, null),
@@ -103,7 +103,7 @@ let config = {
 					{
 						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
 						// 作れないため、同じ ICS を node_helper で取得・整形して描画する。
-						module: "MMM-OshiCal",
+						module: "yp-oshical",
 						position: "bottom_bar",
 						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 						config: {
@@ -125,7 +125,7 @@ let config = {
 			: []),
 		// 月カレンダー＝上バー中央：予定は出さず当月グリッドのみ。土=青／日祝=赤。
 		{
-			module: "MMM-MonthCal",
+			module: "yp-monthcal",
 			position: "top_bar",
 			classes: "r5-plate", // 背景の上で読みやすくする半透明プレート（custom.css）
 		},
