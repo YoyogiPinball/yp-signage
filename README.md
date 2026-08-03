@@ -1,4 +1,4 @@
-> 最終更新: 2026-08-03（Mon）23:08
+> 最終更新: 2026-08-04（Tue）00:52
 
 # yp-signage — ThinkPad X13 の縦置きサイネージ
 
@@ -13,7 +13,7 @@ WSL 側ソース（正本）。サイネージのドキュメントは Obsidian 
 ```
 yp-signage/
 ├── deploy.sh              # WSL → X13 へ scp/ssh で配布
-├── sync-images.sh         # WSL → X13 へ画像を同期（systemd timer は 2026-08-03 に停止中）
+├── sync-images.sh         # WSL → X13 へ画像を同期。1日1回 systemd timer が起動
 ├── magicmirror/
 │   ├── config.js          # MM 設定（モジュール構成、Electron 窓位置）
 │   ├── .env.example       # .env のテンプレート
@@ -170,14 +170,15 @@ D:\...\tate\portrait\             →  X13: ~/signage/slides/tate/
 
 ### 自動実行
 
-> **Warning:** 2026-08-03、リポジトリ改称にあわせてタイマーを**停止・無効化**した。
-> ユニットの `ExecStart` が旧パス `/home/youruser/Batches/x13/sync-images.sh` を指しており、
-> ディレクトリ改称でスクリプトを見失うため。再開するときは `ExecStart` を新パスへ直してから
-> `systemctl --user enable --now x13-sync-images.timer` を叩く。
-> 止めている間は手動で `./sync-images.sh` を実行する。
-
-WSL の systemd user timer が毎日 4:00 に起動する（現在は停止中）。ユニットは WSL 側の `~/.config/systemd/user/` にあり、
+WSL の systemd user timer が毎日 4:00 に起動する。ユニットは WSL 側の `~/.config/systemd/user/` にあり、
 リポジトリには含まれない（X13 ではなく母艦の設定のため）。
+
+> **Warning:** ユニットの `ExecStart` はこのリポジトリのパスを**絶対パスで直書き**している。
+> リポジトリを移動・改称すると、タイマーは今までどおり発火するのにスクリプトが見つからず失敗する。
+> 画面は正常に動き続けるので、写真が増えないことに気づくまで数日かかる。
+> 移動したら `~/.config/systemd/user/x13-sync-images.service` の `ExecStart` と `Documentation` を
+> 直し、`systemctl --user daemon-reload` してから手動で1回走らせて確認する。
+> （2026-08-03 の `x13` → `yp-signage` 改称で実際に踏みかけた）
 
 ```bash
 systemctl --user list-timers x13-sync-images   # 次回実行時刻
