@@ -10,7 +10,7 @@
  */
 Module.register("MMM-OshiCal", {
 	defaults: {
-		icsUrl: "", // 推しスケ iCal（secrets 由来を config で渡す）
+		icsUrl: "", // 推しスケ iCal（config.js が .env の SIGNAGE_CALENDAR_ICS から渡す）
 		maxEntries: 20, // 表示上限。列数で割った値が行数になる
 		updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
 		// 開始時刻ちょうどに、その予定の枠を点滅させる長さ。0 にすると点滅しない。

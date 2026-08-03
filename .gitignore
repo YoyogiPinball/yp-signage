@@ -11,4 +11,3 @@
 .env
 secrets/
 *.secret
-secrets.js
