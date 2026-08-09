@@ -1,14 +1,31 @@
-> 最終更新: 2026-08-03（Mon）22:59
+> 最終更新: 2026-08-07（Fri）00:30
 
-# ~/run — Claude が置く実行スクリプト置き場
+# ~/run — 表示機側に置く実行スクリプト
 
-母艦の Claude Code が「X13本体で実行してほしい」コマンドは、手打ちさせず
-ここにスクリプトとして配置する運用（タイポ防止）。
+このフォルダの中身は `deploy.sh` が表示機の `~/run/` へ配布する。表示機で操作するときは、
+長いコマンドを手で打たずに `bash ~/run/xxx.sh` の1行で済ませるための置き場である。
 
-- GUI や sudo が要るものは Claude が直接SSH実行できないため、
-  ここに xxx.sh を置き、あなたは `bash ~/run/xxx.sh` の1行だけ打つ。
-- サイネージの起動・停止は `mm-start.sh` / `mm-stop.sh`。
-- スライドショー操作は `mm-ctl.sh {pause|resume|toggle|next|prev|topbar}`（一時停止・再開・前後送り・上バーの板 表示切替）。
-- `mm-ctl.sh blink` は配信開始時の点滅を手で起こす確認用。配信予定バーの先頭（左上の時刻付きの枠）を本番と同じ60秒だけ光らせる。本番の発火予定は消さないので、その予定は開始時刻にもう一度光る。
-- 正本は WSL 側の `~/Batches/yp-signage/scripts/`。ここを直接編集しても次の
-  `deploy.sh signage` で上書きされる。
+| スクリプト | 何をするか |
+|---|---|
+| `mm-start.sh` | MagicMirror を起動する。ssh 越しに起動しても死なないよう `systemd-run --user` で常駐させる |
+| `mm-stop.sh` | 停止する |
+| `mm-ctl.sh` | スライドショーを操作する（下記） |
+| `mm-shot.sh` | 実際に映っている画面を1枚 PNG に撮る（`mm-shot.py` が実体） |
+| `mm-fix-sandbox.sh` | Electron の sandbox 権限を直す。初回のみ・sudo が要る |
+
+## スライドショーの操作
+
+```bash
+bash ~/run/mm-ctl.sh {pause|resume|toggle|next|prev|topbar}
+```
+
+`pause` / `resume` / `toggle` は自動送りの一時停止と再開、`next` / `prev` は手動の前後送り、
+`topbar` は上バーの半透明プレートの表示切替。手元からは
+`ssh <表示機> 'bash ~/run/mm-ctl.sh next'` のように叩ける。
+
+`mm-ctl.sh blink` は、配信開始時の点滅を待たずに手で起こす確認用。配信予定バーの先頭
+（左上の時刻付きの枠）を本番と同じ60秒だけ光らせる。本番の発火予定は消さないので、
+その予定は開始時刻にもう一度光る。`blink 3` のように光り方（1〜5）を指定できる。
+
+> **Note:** ここを直接編集しても、次の `deploy.sh signage` で上書きされる。
+> 変更は配布元のリポジトリ側（`scripts/`）で行う。

@@ -1,10 +1,10 @@
 /* 日本の祝日判定（依存ゼロ）。ブラウザ(front)と node(テスト)の両方で使える UMD 風。
  * 固定祝日 ＋ ハッピーマンデー ＋ 春分/秋分 ＋ 振替休日 ＋ 国民の休日 に対応。
  * 使い方: YpHolidays.isHoliday(year, month[1-12], day) → true/false
- * 正本: ~/Batches/yp-signage/magicmirror/modules/yp-monthcal/holidays.js
+ * 置き場所: ~/MagicMirror/modules/yp-monthcal/holidays.js
  */
 (function (root) {
-	// 曜日（0=日 .. 6=土）。X13(JST)のローカル時刻で判定する。
+	// 曜日（0=日 .. 6=土）。表示機のローカル時刻（JST 前提）で判定する。
 	function dow(y, m, d) { return new Date(y, m - 1, d).getDay(); }
 
 	// 春分・秋分の日（近似式・20〜21世紀で有効）。

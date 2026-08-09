@@ -1,5 +1,5 @@
 #!/bin/bash
-# サイネージ操作。母艦から `ssh x13 'bash ~/run/mm-ctl.sh next'` で叩く。
+# サイネージ操作。手元から `ssh <表示機> 'bash ~/run/mm-ctl.sh next'` で叩く。
 # 内部では MagicMirror の各モジュールの制御エンドポイントを叩くだけ（curl/wget）。
 # 使い方: mm-ctl.sh {pause|resume|toggle|next|prev|topbar|blink [1-5] [秒]}
 set -euo pipefail
@@ -50,7 +50,7 @@ if [ "$cmd" = "blink" ]; then
 else
 	url="${BASE}/yp-slideshow/control/${cmd}"
 fi
-# X13 には curl が無い環境があるため wget にフォールバックする。
+# curl が入っていない環境があるため wget にフォールバックする。
 if command -v curl >/dev/null 2>&1; then
 	http() { curl -fsS "$1" >/dev/null; }
 else

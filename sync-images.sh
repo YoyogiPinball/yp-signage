@@ -1,28 +1,44 @@
 #!/bin/bash
-# Windows(D:) のサイネージ画像を X13 へ片方向同期する（WSL で実行 → X13 へ push）。
+# 手元の画像フォルダを表示機へ片方向同期する（手元で実行 → 表示機へ push）。
 #
 # 使い方: ./sync-images.sh [--dry-run]
 #   --dry-run : 転送も削除もせず、何が起きるかだけを表示する
 #
-# 正本は Windows 側。X13 の ~/signage/slides/ をその鏡にする。
-# 元で消えたファイルは X13 でも消すが、実体は ~/signage/.trash/<日付>/ へ退避する。
+# 正本は手元側。表示機の ~/signage/slides/ をその鏡にする。
+# 元で消えたファイルは表示機でも消すが、実体は ~/signage/.trash/<日付>/ へ退避する。
 # 退避先を slides/ の外に置いているのは、yp-slideshow が slides/ 以下を再帰スキャンするため。
 # 中に置くと「消したはずの画像」がスライドショーに出続ける。
 set -euo pipefail
 
-HOST=x13
-SUBDIR=slides             # X13 側 ~/signage/<SUBDIR>/
-TRASH=.trash              # X13 側 ~/signage/<TRASH>/<日付>/
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+SUBDIR=slides             # 表示機側 ~/signage/<SUBDIR>/
+TRASH=.trash              # 表示機側 ~/signage/<TRASH>/<日付>/
 TRASH_KEEP_DAYS=30
-STATE="$HOME/.local/state/x13"
+STATE="$HOME/.local/state/yp-signage"
 LOG="$STATE/sync-images.log"
 LOCK="$STATE/sync-images.lock"
 
-# 同期ペア「WSL から見た元パス | X13 側のフォルダ名」。増やすときはここに1行足す。
+# 同期ペア「手元の元パス|表示機側のフォルダ名」。表示機では ~/signage/slides/<フォルダ名>/ になる。
+# 下は例で、実際の値は signage.conf に書く（gitignore 済み。ひな形は signage.conf.example）。
 PAIRS=(
-	"/mnt/d/photos/_SYNC/r5|r5"
-	"/mnt/d/photos/waaaaaaaaaaalllll/tate/portrait|tate"
+	"$HOME/Pictures/signage|main"
 )
+SIGNAGE_HOST_DEFAULT=""
+
+# 設定の優先順位は「コマンド行の環境変数 > signage.conf > このファイルの既定値」。
+# conf を先に読み、そのあとで環境変数を最終適用する。逆順にすると
+# `SIGNAGE_HOST=... ./sync-images.sh` が conf に上書きされて効かなくなる。
+CONF="$ROOT/signage.conf"
+# shellcheck source=/dev/null
+[ -f "$CONF" ] && . "$CONF"
+
+HOST="${SIGNAGE_HOST:-$SIGNAGE_HOST_DEFAULT}"
+if [ -z "$HOST" ]; then
+	echo "配布先が決まっていません。次のどちらかで指定してください:" >&2
+	echo "  1) $ROOT/signage.conf に SIGNAGE_HOST_DEFAULT=\"<ssh の設定名>\" を書く" >&2
+	echo "  2) SIGNAGE_HOST=<ssh の設定名> ./sync-images.sh のように渡す" >&2
+	exit 1
+fi
 
 DRY=()
 [ "${1:-}" = "--dry-run" ] && DRY=(--dry-run)
@@ -70,7 +86,7 @@ RSYNC_OPTS=(
 	-f '- *'
 )
 
-# X13 のホームは環境によって変わるので決め打ちしない。ここで疎通確認も兼ねる。
+# 表示機のホームは環境によって変わるので決め打ちしない。ここで疎通確認も兼ねる。
 if ! REMOTE_HOME=$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" 'echo "$HOME"' 2>/dev/null); then
 	log_err "abort: $HOST へ接続できない（電源断・ネットワーク断）。次回に持ち越す"
 	exit 0

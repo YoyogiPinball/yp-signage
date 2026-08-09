@@ -1,0 +1,16 @@
+# signage.conf のひな形。コピーして使う。
+#   cp signage.conf.example signage.conf
+#
+# deploy.sh と sync-images.sh の両方がこのファイルを読む。実体（signage.conf）は
+# .gitignore 済みで、配布先のホスト名や手元のフォルダ構成がリポジトリに入らないようにしてある。
+# 優先順位は「コマンド行の環境変数 > このファイル > スクリプト内の既定値」。
+
+# 配布先。~/.ssh/config の Host 名を書く（鍵認証を通しておくこと）。
+# ここが空だと deploy.sh / sync-images.sh は接続する前に止まる。
+SIGNAGE_HOST_DEFAULT=""
+
+# 画像同期のペア「手元の元パス|表示機側のフォルダ名」。
+# 表示機では ~/signage/slides/<フォルダ名>/ になる。sync-images.sh でだけ使う。
+PAIRS=(
+	"$HOME/Pictures/signage|main"
+)

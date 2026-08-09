@@ -1,7 +1,7 @@
 #!/bin/bash
 # MagicMirror の現在表示（実画面）を1枚 PNG に撮る。稼働中の signage には触れない。
 # 保存先: ~/signage/shots/<yyyymmddhhmmss>.png
-# 使い方: bash ~/run/mm-shot.sh   （母艦からは ssh x13 'bash ~/run/mm-shot.sh'）
+# 使い方: bash ~/run/mm-shot.sh   （手元からは ssh <表示機> 'bash ~/run/mm-shot.sh'）
 #
 # 撮影の仕組み: org.gnome.Mutter.ScreenCast D-Bus を使い、サイネージ出力先モニタの
 # PipeWire ストリームから 1 フレームを直接キャプチャする。
