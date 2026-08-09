@@ -20,3 +20,6 @@ signage.conf
 # Claude Code への指示書。地雷リストと機械固有の情報（接続先など）を含むため公開しない。
 # 実体は手元に置いたまま git の管理からだけ外す。控えは Obsidian 側のミラーが持つ。
 CLAUDE.md
+
+# 手元の作業メモ。公開物ではない。
+devnote.md
