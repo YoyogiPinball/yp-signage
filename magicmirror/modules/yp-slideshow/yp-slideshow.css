@@ -32,17 +32,23 @@
 }
 
 /* 一時停止中バッジ。画面右下に控えめに出す（止まっているのを示すだけ）。 */
-.mmm-r5-paused {
-	position: absolute;
+/* 一時停止中バッジ。body 直下に置くので fixed で画面基準に置く。
+   このモジュールは fullscreen_below（最背面の領域）にいるため、モジュールの中に
+   入れると下バーやぼかし背景の裏に隠れてしまう。z-index はメニューの1つ下。 */
+.yp-paused {
+	position: fixed;
+	z-index: 9998;
 	right: 24px;
 	bottom: 24px;
 	padding: 8px 14px;
 	border-radius: 8px;
-	background: rgba(0, 0, 0, 0.55);
-	color: rgba(255, 255, 255, 0.85);
+	background: rgba(0, 0, 0, 0.65);
+	color: rgba(255, 255, 255, 0.9);
 	font-size: 22px;
 	letter-spacing: 0.05em;
+	text-shadow: none;
 	backdrop-filter: blur(4px);
+	pointer-events: none; /* 右クリックの邪魔をしない */
 }
 
 /* 右クリックメニュー。body 直下に置くので、モジュール領域の座標に依存しない。

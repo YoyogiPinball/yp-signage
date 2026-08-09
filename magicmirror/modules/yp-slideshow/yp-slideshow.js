@@ -62,11 +62,12 @@ Module.register("yp-slideshow", {
 		menu.className = "yp-menu";
 		menu.addEventListener("click", (e) => e.stopPropagation());
 
+		// 上バーの板の切り替えはメニューに出さない。日常的に触るものではなく、
+		// 必要なときは `mm-ctl.sh topbar` から叩ける（control() 側には残してある）。
 		const items = [
 			["次へ", () => this.control("next")],
 			["前へ", () => this.control("prev")],
 			[this.paused ? "再開" : "一時停止", () => this.control("toggle")],
-			["上バーの板", () => this.control("topbar")],
 		];
 		for (const [label, fn] of items) {
 			menu.appendChild(this.makeMenuItem(label, () => { fn(); this.closeMenu(); }));
@@ -76,18 +77,13 @@ Module.register("yp-slideshow", {
 			const sep = document.createElement("div");
 			sep.className = "yp-menu-sep";
 			menu.appendChild(sep);
-			// 終了は2段階。1回目で確認に変わり、2回目で実行する。全画面の常時表示なので、
-			// 誤って触ったときに画面が落ちると復旧に ssh が要る。
+			// 1クリックで終了する。右クリックしてから項目を選ぶまでに2手あるので、
+			// 触るつもりが無いのに押してしまう状況は考えにくい。
 			const quit = this.makeMenuItem("終了", () => {
-				if (quit.dataset.armed === "1") {
-					this.sendSocketNotification("YP_SLIDESHOW_QUIT");
-					this.closeMenu();
-					return;
-				}
-				quit.dataset.armed = "1";
-				quit.textContent = "本当に終了する？";
-				quit.classList.add("yp-menu-danger");
+				this.sendSocketNotification("YP_SLIDESHOW_QUIT");
+				this.closeMenu();
 			});
+			quit.classList.add("yp-menu-danger");
 			menu.appendChild(quit);
 		}
 
@@ -97,6 +93,30 @@ Module.register("yp-slideshow", {
 		menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
 		menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
 		this.menu = menu;
+	},
+
+	// 一時停止バッジ。メニューと同じく body 直下に置く。
+	// このモジュールは fullscreen_below（他のモジュールの下に敷く領域）にいるため、
+	// wrapper の中に入れると背景と一緒に最背面へ回り、下バーやぼかしの裏に隠れる。
+	renderPausedBadge() {
+		if (this.pausedBadge) {
+			this.pausedBadge.remove();
+			this.pausedBadge = null;
+		}
+		if (!this.paused) return;
+		const badge = document.createElement("div");
+		badge.className = "yp-paused";
+		badge.textContent = "❙❙ 一時停止中";
+		document.body.appendChild(badge);
+
+		// 下バー（配信予定）に重ならない高さへ逃がす。バーの高さは列数と行数で変わるので、
+		// 決め打ちにせずその場で測る。バーが無い・畳まれている構成では画面の下端に置く。
+		const bar = document.querySelector(".region.bottom.bar");
+		const rect = bar ? bar.getBoundingClientRect() : null;
+		if (rect && rect.height > 0) {
+			badge.style.bottom = Math.round(window.innerHeight - rect.top + 12) + "px";
+		}
+		this.pausedBadge = badge;
 	},
 
 	makeMenuItem(label, onClick) {
@@ -130,11 +150,11 @@ Module.register("yp-slideshow", {
 			case "pause":
 				this.paused = true;
 				clearTimeout(this.timer); // オート送りを止める
-				this.updateDom(0); // 一時停止バッジを出す
+				this.renderPausedBadge(); // 一時停止バッジを出す
 				break;
 			case "resume":
 				this.paused = false;
-				this.updateDom(0); // バッジを消す
+				this.renderPausedBadge(); // バッジを消す
 				this.scheduleNext(); // オート巡回を再開
 				break;
 			case "toggle":
@@ -280,13 +300,8 @@ Module.register("yp-slideshow", {
 		img.src = shown;
 		wrapper.appendChild(img);
 
-		// 一時停止中は画面隅に控えめなバッジを出す（止まっているか一目でわかる）。
-		if (this.paused) {
-			const badge = document.createElement("div");
-			badge.className = "mmm-r5-paused";
-			badge.textContent = "❙❙ 一時停止中";
-			wrapper.appendChild(badge);
-		}
+		// 一時停止バッジはここでは作らない（renderPausedBadge が body 直下に置く）。
+		// この wrapper は fullscreen_below にいるので、中に入れると最背面へ回ってしまう。
 		return wrapper;
 	},
 });
