@@ -18,6 +18,15 @@ Module.register("yp-oshical", {
 		// 光り方の案。1=控えめ 2=濃い 3=全周を囲む 4=はっきり明滅 5=反転（いちばん強い）。
 		// 見比べは実機で `bash ~/run/mm-ctl.sh blink 3` のように行う（CSS 側の f1〜f5）。
 		firingStyle: 1,
+		// icsUrl が空のときバーごと畳む。空のまま表示しても枠だけが並ぶため既定でオン。
+		hideIfNoUrl: true,
+		// デモモード。iCal を取りに行かず、それらしい予定を組み立てて表示する。
+		demo: false,
+		// この先の予定が1件も無いときバーごと畳む。
+		// false にすると「この先の予定なし」と書いた枠を1つ出す。どちらが良いかは運用による。
+		// 畳む(true)  : 予定が無い夜は背景画像だけになり、画面が静かになる
+		// 出す(false) : 「モジュールが落ちた」のか「予定が無い」のかを画面から区別できる
+		hideIfEmpty: true,
 	},
 
 	getStyles() {
@@ -27,18 +36,21 @@ Module.register("yp-oshical", {
 	start() {
 		this.days = [];
 		this.loaded = false;
+		this.fetchFailed = false; // 直近の取得が失敗したか（画面に出す文言を変えるため）
 		this.firing = new Map(); // 点滅中の予定 key → { endsAt, style }。描画時に参照する
 		this.fired = new Set(); // 一度点滅させた key。5分ごとの再取得で二度光らせないため
 		this.startTimers = []; // 「開始時刻に光らせる」タイマー。再取得のたびに張り直す
 		this.stopTimers = new Map(); // 「光り終わり」タイマー。張り直しの巻き添えで消さない
-		// 予定の列数を body class に反映（CSS 切替用）。X13_COLS 由来（既定4）。
-		document.body.classList.add("x13-cols-" + (this.config.columns || 4));
+		// 予定の列数を body class に反映（既定4）。列数ごとに見た目を変えたいときの
+		// スタイリング用フック。custom.css 側で `body.yp-cols-3 .oc-item { … }` のように使う。
+		document.body.classList.add("yp-cols-" + (this.config.columns || 4));
 		this.requestEvents();
 		setInterval(() => this.requestEvents(), this.config.updateInterval);
 	},
 
 	requestEvents() {
 		this.sendSocketNotification("YP_OSHICAL_FETCH", {
+			demo: !!this.config.demo, // true なら通信せず、それらしい予定を組み立てて返す
 			icsUrl: this.config.icsUrl,
 			maxEntries: this.config.maxEntries, // これを超えた日は helper 側で収集を打ち切る
 			debugNow: this.config.debugNow || "", // デバッグ現在時刻（空なら実時刻）
@@ -57,10 +69,55 @@ Module.register("yp-oshical", {
 			return;
 		}
 		if (notification !== "YP_OSHICAL_EVENTS") return;
+
+		// 取得に失敗した回は、今出している予定をそのまま残す。5分ごとの取得が一度こけただけで
+		// 画面から予定が消えると、見た人は「予定が無い」のか「取れていない」のか区別できない。
+		// 回線の瞬断で夜の予定が丸ごと消えるのがいちばん困る。
+		if (payload.error) {
+			this.fetchFailed = true;
+			// 一度も取れていないときだけは、何か出さないと「読み込み中…」のまま固まって見える。
+			// URL の書き間違いに気づけるよう、取得できていないことを画面に出す。
+			if (this.days.length === 0) {
+				this.loaded = true;
+				this.render();
+			}
+			return;
+		}
+		this.fetchFailed = false;
+
+		// URL 未設定は「予定が0件」とは別に扱う。同じ扱いにすると、hideIfNoUrl: false を
+		// 指定しても直後の 0件判定（hideIfEmpty の既定は true）に捕まって結局畳まれてしまう。
+		if (payload.noUrl) {
+			this.days = [];
+			this.loaded = true;
+			if (this.config.hideIfNoUrl) {
+				this.hide(500);
+				return;
+			}
+			this.render();
+			return;
+		}
+
 		this.days = payload.days || [];
 		this.loaded = true;
 		this.scheduleFiring();
-		this.updateDom(500);
+
+		// バーを畳むかどうかは受信のたびに決め直す。予定が入れば自動でまた出す。
+		// custom.css の `.region.bottom .container.hidden { display: none; }` により、
+		// hide() すると半透明のプレートごと消えて背景画像だけが残る（空の板は残らない）。
+		if (this.days.length === 0 && this.config.hideIfEmpty) {
+			this.hide(500);
+			return;
+		}
+		this.render();
+	},
+
+	// 中身を描き直してから表示する。畳んでいた状態から復帰するときは、先に中身を
+	// 差し替えてから見せる（updateDom は完了を待てないので、フェード付きにすると
+	// 古い中身のまま一瞬表示されてしまう）。
+	render() {
+		this.updateDom(this.hidden ? 0 : 500);
+		this.show(500);
 	},
 
 	// 予定の開始時刻ちょうどに枠を光らせるタイマーを張り直す。
@@ -134,7 +191,10 @@ Module.register("yp-oshical", {
 
 		if (!this.loaded || this.days.length === 0) {
 			// 予定が無い・まだ取れていないときも枠はそのまま引き、1枠だけ知らせに使う。
-			list.appendChild(this.makeNotice(this.loaded ? "この先の予定なし" : "読み込み中…"));
+			// 取得に失敗しているのに「この先の予定なし」と出すと、URL の書き間違いや
+			// 配信元の障害を「予定が無い日」と読み違える。原因が分かる文言を出し分ける。
+			const notice = this.fetchFailed ? "予定を取得できません" : this.loaded ? "この先の予定なし" : "読み込み中…";
+			list.appendChild(this.makeNotice(notice));
 		} else {
 			this.appendDays(list, total);
 		}

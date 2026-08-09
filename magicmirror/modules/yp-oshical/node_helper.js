@@ -30,19 +30,102 @@ module.exports = NodeHelper.create({
 
 	socketNotificationReceived(notification, payload) {
 		if (notification !== "YP_OSHICAL_FETCH") return;
+		if (payload.demo) {
+			this.sendDemo(payload.maxEntries || 20, payload.debugNow || "");
+			return;
+		}
 		this.fetchAndParse(payload.icsUrl, payload.maxEntries || 20, payload.debugNow || "");
 	},
 
+	// --- デモモード ---------------------------------------------------------
+	// 予定データを組み立てて返すのではなく、その場で ICS を作って同じ parseIcs に通す。
+	// 配信中の判定・日付セルの挟み方・点滅タイマーまで本番と同じ経路を通したいため。
+	// days を直接でっち上げると、デモだけ挙動が違って確認の意味が薄れる。
+	sendDemo(maxEntries, debugNow) {
+		let now = Date.now();
+		if (debugNow) {
+			const t = new Date(debugNow).getTime();
+			if (!Number.isNaN(t)) now = t;
+		}
+		const days = this.parseIcs(this.buildDemoIcs(now), maxEntries, debugNow);
+		this.sendSocketNotification("YP_OSHICAL_EVENTS", { days, demo: true });
+	},
+
+	buildDemoIcs(now) {
+		const names = ["デモ星子", "デモ月人", "デモ陽和", "デモ小夜", "デモ千景"];
+		// タイトルは時間帯ごとに分ける。順番に配ると「12:00 朝のごあいさつ」のような
+		// ちぐはぐな並びになり、デモだと分かる前に「作りが雑」に見えてしまう。
+		const titlesByHour = [
+			[11, ["朝のごあいさつ雑談", "モーニングルーティン", "今日の予定を立てる"]],
+			[17, ["視聴者参加型クイズ", "お絵かきしながら雑談", "新曲お披露目"]],
+			[22, ["ゲーム実況（ホラー）", "歌枠 リクエスト回", "コラボ企画 前編"]],
+			[24, ["深夜のまったり作業", "寝落ち雑談", "今日のふりかえり"]],
+		];
+		const titleFor = (hour, i) => {
+			const band = titlesByHour.find(([until]) => hour < until) || titlesByHour[titlesByHour.length - 1];
+			return band[1][i % band[1].length];
+		};
+
+		// JST の壁時計で日時を組み、UTC の DTSTART に直す。
+		// getUTC* に +9h した Date を渡すと JST の年月日時分がそのまま取れる。
+		const jst = new Date(now + JST_OFFSET);
+		const y = jst.getUTCFullYear();
+		const mo = jst.getUTCMonth();
+		const d = jst.getUTCDate();
+		const at = (dayOffset, hour, min) => new Date(Date.UTC(y, mo, d + dayOffset, hour, min) - JST_OFFSET);
+		const stamp = (dt) => dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+		const dateOnly = (dayOffset) => stamp(at(dayOffset, 12, 0)).slice(0, 8);
+
+		const lines = ["BEGIN:VCALENDAR", "VERSION:2.0"];
+		let n = 0;
+		const timed = (dayOffset, hour, min) => {
+			const name = names[n % names.length];
+			const title = titleFor(hour, n);
+			n++;
+			lines.push("BEGIN:VEVENT", `DTSTART:${stamp(at(dayOffset, hour, min))}`, `SUMMARY:【${name}】${title}`, "END:VEVENT");
+		};
+
+		// 今日は「今の時間帯」に1件置く。これが配信中（オレンジ）になるので、
+		// いつスクリーンショットを撮っても配信中の見た目が入る。
+		const nowHour = jst.getUTCHours();
+		timed(0, nowHour, 0);
+		// 固定枠のうち今の時間帯と重なるものは飛ばす。同じ「時」の予定はまとめて配信中と
+		// みなされるため、置いたままだと配信中が2件並んで「1件だけ光る」見本にならない。
+		for (const h of [10, 13, 16, 19, 21, 23]) {
+			if (h === nowHour) continue;
+			timed(0, h, h === 19 ? 30 : 0);
+		}
+		for (const h of [11, 14, 17, 20, 22]) timed(1, h, 0);
+		for (const h of [12, 15, 18, 21]) timed(2, h, 0);
+
+		// 終日の予定も1件入れて、時刻なしの並び（時刻付きの後ろ）を見せる。
+		lines.push("BEGIN:VEVENT", `DTSTART;VALUE=DATE:${dateOnly(1)}`, "SUMMARY:【デモ星子】グッズ受注 最終日", "END:VEVENT");
+
+		lines.push("END:VCALENDAR");
+		return lines.join("\r\n");
+	},
+
 	async fetchAndParse(url, maxEntries, debugNow) {
-		let days = [];
+		// URL 未設定なら通信しない。fetch("") は Invalid URL を投げるだけで、
+		// 5分ごとに意味のないエラーがログへ積まれる。front には「URL が無い」と伝えて畳ませる。
+		if (!url) {
+			this.sendSocketNotification("YP_OSHICAL_EVENTS", { days: [], noUrl: true });
+			return;
+		}
 		try {
 			const res = await fetch(url);
+			// 4xx/5xx でも fetch は例外を投げない。中身はエラーページの HTML なので、
+			// 解析すると VEVENT ゼロ＝「予定なし」に化ける。取得できなかったことを front へ伝える。
+			if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 			const text = await res.text();
-			days = this.parseIcs(text, maxEntries, debugNow);
+			const days = this.parseIcs(text, maxEntries, debugNow);
+			this.sendSocketNotification("YP_OSHICAL_EVENTS", { days });
 		} catch (e) {
+			// 失敗を 0件として返すと、front が hideIfEmpty で下バーごと畳んでしまう。
+			// 「取れなかった」と伝えて、front には直前の表示を保たせる。
 			console.error(`[yp-oshical] 取得/解析エラー: ${e.message}`);
+			this.sendSocketNotification("YP_OSHICAL_EVENTS", { error: true });
 		}
-		this.sendSocketNotification("YP_OSHICAL_EVENTS", { days });
 	},
 
 	// 返り値: [{ num, today, label, events:[{time,name,title,live,ms}], total }] を日付の昇順で。
@@ -53,8 +136,8 @@ module.exports = NodeHelper.create({
 		// iCal の折り返し（行頭スペース/タブは前行の続き）を戻してから行分割。
 		const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
 
-		// デバッグ用に現在時刻を差し替え可能（X13_OSHI_NOW 由来）。空/不正なら実時刻。
-		// X13 は JST 稼働なので "2026-07-19T06:00" はそのまま JST 壁時計として解釈される。
+		// デバッグ用に現在時刻を差し替え可能（SIGNAGE_OSHI_NOW 由来）。空/不正なら実時刻。
+		// 表示機を JST で動かしている前提なので "2026-07-19T06:00" は JST 壁時計として解釈される。
 		let now = Date.now();
 		if (debugNow) {
 			const t = new Date(debugNow).getTime();
