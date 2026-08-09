@@ -1,324 +1,355 @@
-> 最終更新: 2026-08-04（Tue）00:59
+> 最終更新: 2026-08-09（Sun）17:01
 
-# yp-signage — ThinkPad X13 の縦置きサイネージ
+# yp-signage — 縦置きモニターの常時稼働サイネージ
 
-中古の ThinkPad X13 Gen1 (Ubuntu 26.04) を常時稼働のサイネージに転用するプロジェクト。
-外部モニターを縦置きし、MagicMirror² v2.37 で時計、背景スライドショー、カレンダーを全画面表示する。
+古いノート PC に外部モニターを縦向きで挿し、[MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) で
+時計・月カレンダー・天気・背景スライドショー・配信予定を全画面表示する一式。
 
-WSL 側ソース（正本）。サイネージのドキュメントは Obsidian `40-Projects/YP-Signage/`、
-機械（X13）そのもののスペック・セットアップは `40-Projects/X13/`。
+配るのは **設定と自作モジュールだけ** で、MagicMirror² 本体は含まない（改変もしていない）。
+本体を先に入れてから、この中身を重ねる形で使う。
 
-## ディレクトリ構成
+<!-- スクリーンショットは samples/ のダミー画像に差し替えて撮り直したものを後で入れる -->
 
-```
-yp-signage/
-├── deploy.sh              # WSL → X13 へ scp/ssh で配布
-├── sync-images.sh         # WSL → X13 へ画像を同期。1日1回 systemd timer が起動
-├── magicmirror/
-│   ├── config.js          # MM 設定（モジュール構成、Electron 窓位置）
-│   ├── .env.example       # .env のテンプレート
-│   ├── .env               # .gitignore 済み。iCal URL 等の秘密情報と環境ごとの設定値
-│   ├── css/
-│   │   └── custom.css     # 白文字、ソフト黒フチ、半透明プレート (.r5-plate)
-│   └── modules/
-│       ├── yp-slideshow/  # 自作: 背景全画面スライドショー
-│       ├── yp-oshical/    # 自作: 推しスケの配信予定バー（今日→先の日へ）
-│       └── yp-monthcal/   # 自作: 月間カレンダー（祝日対応）
-├── scripts/               # X13 の ~/run/ へ配布する実行スクリプト
-│   ├── mm-start.sh        # MM を systemd user service で起動
-│   ├── mm-stop.sh         # MM を停止
-│   ├── mm-ctl.sh          # スライド送り・一時停止・点滅テスト
-│   ├── mm-fix-sandbox.sh  # Electron chrome-sandbox の権限修正 (初回のみ)
-│   ├── mm-shot.sh         # 現在表示を1枚 PNG に撮る（~/signage/shots/ へ）
-│   ├── mm-shot.py         # mm-shot.sh が使う Mutter ScreenCast キャプチャ本体
-│   ├── mm-shot.js         # 旧方式（Electron で開き直す）。現在は未使用だが配布はされる
-│   └── README.md          # ~/run/ の説明（X13 側に置かれる）
-├── legacy/                # 旧構成。配布対象外。MM が起動しない時の退避手段として保管
-│   ├── r5.sh              # feh によるスライドショー
-│   ├── signage-*.sh       # mpv によるスライドショー / Sway 版
-│   ├── canvas.sh          # GNOME(Mutter) から外部モニタ解像度を取得
-│   └── ext-canvas.py      # 同上の Sway 版（swaymsg の JSON を読む）
-└── host/
-    └── monitors.xml       # 外部モニタ縦固定のディスプレイ構成（実機の写し。配布しない）
-```
+`yp` は作者のハンドル（yoyogipinball）の頭文字で、それ以上の意味はない。
+自作モジュールの名前が MagicMirror² 界隈の慣習である `MMM-` で始まらないのも同じ理由で、
+フォルダ名と `Module.register()` の名前さえ一致していれば MagicMirror² は読み込む。
 
-## 配布
+## これで何ができるのか
 
-```bash
-./deploy.sh            # 既定は signage
-./deploy.sh signage    # 一式を X13 へ
-```
+縦 1080×1920 の画面を上下のバーと背景の3層に分けて使う。
 
-配布先は `~/MagicMirror/` と `~/run/` で、リポジトリ側の再配置による影響は受けない。
+- 背景 — 手元の画像フォルダを再帰的にスキャンして、60秒ごとにフェードで切り替える
+- 上バー — 時計、当月カレンダー（祝日・振替休日つき）、5日ぶんの天気予報
+- 下バー — iCal で購読した「今から先の予定」を、時刻を縦に揃えた2段カードで並べる
 
-> **Note:** ターゲット式を残しているのは、配布単位を分けたくなったときに `deploy_<名前>()` を1つ足すだけで済むようにするため。
-> MagicMirror は設定を書き換えると再起動が必要になるので、一括配布のままだと別用途の1行修正でサイネージが巻き込まれて画面が落ちる。
-> 用途を増やすときは `deploy.sh` に `deploy_<名前>()` を追加し、末尾の `case` に1行足す。
+下バーの予定は、開始時刻ちょうどにその枠だけが60秒間ふわっと点滅する。
+画面を覆うポップアップは出さない。視界の端に置く画面なので、視線を奪わずに気づかせるほうが向いている。
 
-## 画面構成
+## 動作環境
 
-2画面のマルチディスプレイ構成。
+**この構成で動かしている、という以上のことは保証しない。** 横画面・X11・Raspberry Pi での
+動作は確認していない。汎用化を試みるより、動いている構成を正直に書くほうが、読む側も判断しやすい。
 
-- **eDP-1** (内蔵): 作業用。横置き。蓋オープン時は縦モニタの下 (117, 1920) に置かれる。
-- **外部 LG 22MP56**: サイネージ用。縦置き (rotation: right = 270°)。1080×1920。
+| 項目 | 検証している構成 |
+|---|---|
+| 表示機 | 中古ノート PC（ThinkPad X13 Gen1）を常時稼働 |
+| OS | Ubuntu 26.04 / GNOME (Wayland) + XWayland |
+| Node.js | 24（MagicMirror² v2.37 が要求するバージョンに従う） |
+| MagicMirror² | v2.37 を `~/MagicMirror/` に導入済み |
+| モニター | 外部モニターを縦置き（1080×1920） |
+| 操作元 | 別マシン（WSL）から ssh・scp で配る |
 
-`host/monitors.xml` に「蓋オープン (2画面)」と「蓋クローズ (外部単独)」の両構成を書き、外部モニタを論理原点 (0,0) に固定している。
-蓋の開閉で回転や座標がぶれないようにするため。
+解像度は `.env` の1行で変えられる。横画面で試したい場合はそこから触るのが早い。
 
-> **Warning:** 外部モニタのコネクタ名を決め打ちにしないこと。ケーブルを挿し替えると変わる。
-> 2026-07-25 の実測では `HDMI-A-2` (mutter 上の表記は `HDMI-2`) で、`DP-1` / `DP-2` はどちらも未接続だった。
-> それ以前の資料は `DP-2` と書いており、実機と食い違ったまま残っていた。現在の接続はこう確認する。
->
-> ```bash
-> ssh x13 'for c in /sys/class/drm/card*-*/status; do printf "%s: %s\n" "$(basename $(dirname $c))" "$(cat $c)"; done'
-> ```
->
-> スクリーンショット取得 (`mm-shot.py`) は Mutter に問い合わせて出力先を自動判定するため、挿し替えても修正は要らない。
+> **Note:** 表示機と操作元を分けているが、同じ機械で完結させてもよい。その場合は
+> `deploy.sh` を使わず、下の「配布先の対応表」のとおりに手でコピーすればいい。
 
-## セットアップ
+## 導入
 
-### X13 側の前提
+### 1. MagicMirror² 本体を入れる
 
-- Ubuntu 26.04、GNOME (Wayland)、Node.js 24、npm
-- MagicMirror² v2.37 が `~/MagicMirror/` にインストール済み
-- `loginctl enable-linger <user>` 済み（ssh 切断後もユーザーサービスを維持）
-- サイネージ用画像を `~/signage/slides/` 以下に配置（`sync-images.sh` が自動で置く。後述）
+[本家の手順](https://docs.magicmirror.builders/getting-started/installation.html) に従って
+表示機の `~/MagicMirror/` に導入し、素の状態で画面が出るところまで先に確認する。
+ここが動かないうちに設定を重ねると、切り分けができなくなる。
 
-### .env の準備
+### 2. このリポジトリを取得する
 
-秘密情報（iCal URL・API キー）と、環境ごとに変わる設定値（モニターの解像度・表示秒数など）は
-`.env` にまとめてある。`config.js` を開かずにこのファイルだけで設定を変えられる。
+操作元のマシンに clone する（表示機ではない）。
 
 ```bash
-cd magicmirror
-cp .env.example .env
-# .env を編集し、SIGNAGE_CALENDAR_ICS に実際の iCal URL を書く
+git clone https://github.com/YoyogiPinball/yp-signage.git
+cd yp-signage
+```
+
+### 3. 配布先を決める
+
+`deploy.sh` と `sync-images.sh` は、どの機械へ配るかを `signage.conf` から読む。
+このファイルは `.gitignore` 済みで、ホスト名や手元のフォルダ構成がリポジトリに入らないようにしてある。
+
+```bash
+cp signage.conf.example signage.conf
+$EDITOR signage.conf     # SIGNAGE_HOST_DEFAULT に ssh の設定名を書く
+```
+
+`~/.ssh/config` の `Host` 名を書く。鍵認証を通しておくこと。
+その場限りで変えたいときは `SIGNAGE_HOST=別の名前 ./deploy.sh` でも渡せる（こちらが優先される）。
+
+### 4. まず動かしてみる（デモモード）
+
+自分の画像も iCal も用意しないまま、完成した画面を先に見られる。**通信は一切しない。**
+
+```bash
+cp magicmirror/.env.example magicmirror/.env
+sed -i 's/^SIGNAGE_DEMO=false/SIGNAGE_DEMO=true/' magicmirror/.env
+```
+
+この状態のまま手順7〜9（配る → 権限修正 → 起動）まで進めると、背景は同梱のサンプル画像、
+配信予定はそれらしいものが並び、天気は API キー不要のデモ用パネルに差し替わった画面が出る。
+「入れたのに何も出ない」で詰まる前に、動いている状態を見ておくためのものである。
+
+見終わったら `magicmirror/.env` の `SIGNAGE_DEMO` を `false` に戻し、もう一度配って起動し直す。
+
+> **Tip:** ファイルを書き換えずに1回だけ試すこともできる。
+> `ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'` で起動すれば、その回だけデモになる。
+
+### 5. 背景画像を置く
+
+画像が1枚も無いと、画面には「画像なし」という文字だけが出る。正常な動作なのだが
+壊れて見えるので、最初にダミーを置いておく（デモモードの間はこの手順は要らない）。
+
+```bash
+ssh signage 'mkdir -p ~/signage/slides'
+scp samples/*.jpg signage:~/signage/slides/
+```
+
+`~/signage/slides/` の下はフォルダを掘ってよく、再帰的に全部拾って1本の再生リストにまとまる。
+
+### 6. .env を書く
+
+秘密情報（iCal URL・API キー）と、環境ごとに変わる値（解像度・表示秒数・緯度経度）は
+`.env` にまとめてある。`config.js`（150行の JavaScript）を開かずに設定を変えるためである。
+
+手順4で作った `magicmirror/.env` をそのまま編集すればよい（まだ作っていなければ
+`cp magicmirror/.env.example magicmirror/.env` から）。
+
+```bash
+$EDITOR magicmirror/.env
 ```
 
 書式は `KEY=値` だけで、引用符もカンマも要らない。1行書き損じてもその項目が既定値に落ちるだけで、
-他の設定は生き残る。項目の一覧と意味は `.env.example` のコメントを参照。
+他の設定は生き残る。項目の一覧と意味は `.env.example` のコメントにすべて書いてある。
 
-配布先では `~/MagicMirror/.env`（`config/` ではなく MagicMirror のルート）に置く。
-`config.js` が `process.loadEnvFile()` で「カレントディレクトリの `.env`」を読むためで、
-置き場所を間違えると全項目が既定値に落ちる。
+全部空のままでも起動はする。その場合、カレンダーと天気のパネルが出ない画面になる。
 
-### 初回デプロイ
+> **Warning:** 配布先での置き場所は `~/MagicMirror/.env` で、`config/` ではなく
+> **MagicMirror のルート**である。`config.js` は引数なしの `process.loadEnvFile()` で
+> 「カレントディレクトリの `.env`」を読み、MagicMirror は自身のルートをカレントディレクトリにして
+> 起動するため。`config/` に置くと、エラーも出さずに全項目が既定値へ落ちる。
 
-```bash
-# WSL 側から
-bash deploy.sh
-
-# X13 側で Electron sandbox の権限修正（初回のみ・sudo）
-ssh x13 'sudo bash ~/run/mm-fix-sandbox.sh'
-```
-
-### 起動と停止
+### 7. 配る
 
 ```bash
-# 起動（ssh 越しでも安全）
-ssh x13 'bash ~/run/mm-start.sh'
-
-# 停止
-ssh x13 'bash ~/run/mm-stop.sh'
-
-# ログ確認
-ssh x13 'journalctl --user -u magicmirror -f'
+./deploy.sh
 ```
 
-`mm-start.sh` は `systemd-run --user` で transient service として起動する。
-ssh セッションの scope から切り離されるため、ssh を切っても MM は生き続ける。
+配布先は手順3で `signage.conf` に書いたものが使われる。別の機械へ1回だけ配りたいときは
+`SIGNAGE_HOST=別の名前 ./deploy.sh`。何を どこへ 置くかは末尾の対応表にある。
 
-### 画面のスクショを撮る
+### 8. 初回だけ必要な権限修正
 
-母艦から X13 のサイネージ表示を1枚 PNG に撮れる。実際に映っている画面をそのまま取るので、
+```bash
+ssh signage 'sudo bash ~/run/mm-fix-sandbox.sh'
+```
+
+Electron の `chrome-sandbox` は所有者と権限が特定の状態でないと起動を拒否する。
+パッケージの入れ方によっては条件を満たしていないため、初回に一度だけ直す。
+
+### 9. 起動する
+
+```bash
+ssh signage 'bash ~/run/mm-start.sh'      # 起動
+ssh signage 'bash ~/run/mm-stop.sh'       # 停止
+ssh signage 'journalctl --user -u magicmirror -f'   # ログ
+```
+
+事前に表示機で `loginctl enable-linger <ユーザー名>` を実行しておく。
+ssh を切ったあともユーザーのサービスを生かし続ける設定で、これが無いと切断時に画面が落ちる。
+
+> **Note:** `mm-start.sh` は `nohup` ではなく `systemd-run --user` で起動する。
+> ssh 越しに起動したプロセスは、セッション終了時に logind（`KillUserProcesses=yes`）が
+> セッションごと SIGTERM するため、`nohup` では起動直後に殺される。
+> transient service として ssh セッションの scope から切り離すと生き残る。
+
+## 日々の操作
+
+画面を**右クリック**すると、次へ / 前へ / 一時停止 / 上バーの板 / 終了 のメニューが出る。
+表示機にキーボードとマウスが繋がっているなら、これがいちばん早い。左右の矢印キーでも送れる。
+
+> **Warning:** 「終了」はメニューからしか行えない。Alt+F4 やウィンドウの閉じるボタンでは終わらない。
+> MagicMirror² 本体が `window-all-closed` で窓を作り直す作りになっているためで
+> （常時表示の機器で誤って閉じても戻るようにする設計）、本体を改変しない限り変えられない。
+> メニューの「終了」は1回目のクリックで確認に変わり、2回目で本当に終了する。
+> 誤操作が怖い設置なら `config.js` の `allowQuit: false` で項目ごと消せる。
+
+手元のマシンから操作するときは `mm-ctl.sh` を使う。
+
+```bash
+ssh signage 'bash ~/run/mm-ctl.sh next'
+```
+
+| コマンド | 動作 |
+|---|---|
+| `pause` / `resume` / `toggle` | 自動送りの一時停止・再開 |
+| `next` / `prev` | 手動で前後に送る |
+| `topbar` | 上バーの半透明プレートの表示切替 |
+| `blink [1-5] [秒]` | 配信開始時の点滅を手で起こす（確認用） |
+
+画面キャプチャは `mm-shot.sh` で撮る。実際に映っている画面をそのまま取るので、
 実機で見えているとおりの絵が得られる。
 
 ```bash
-ssh x13 'bash ~/run/mm-shot.sh'   # ~/signage/shots/<yyyymmddhhmmss>.png に保存
-
-# 出力先を指定する
-ssh x13 'SHOT_OUT=~/signage/shots/x.png bash ~/run/mm-shot.sh'
-# 特定のモニタを狙う（既定は Mutter に問い合わせて自動判定）
-ssh x13 'SHOT_CONNECTOR=HDMI-2 bash ~/run/mm-shot.sh'
+ssh signage 'bash ~/run/mm-shot.sh'                     # ~/signage/shots/<日時>.png
+ssh signage 'SHOT_CONNECTOR=HDMI-2 bash ~/run/mm-shot.sh'  # モニタを指定する
 ```
 
-> **Note:** GNOME (Wayland) の D-Bus スクショは新しめの GNOME で拒否され、XWayland の X11 root grab は
-> 合成後の画面が入らず真っ黒になる。どちらも使えないため、`mm-shot.sh` は `mm-shot.py` を呼び、
-> Mutter の ScreenCast を D-Bus 経由で開始して、実画面の PipeWire ストリームから1フレームだけ取る。
-> どのモニタを撮るかは毎回 `Mutter.DisplayConfig` に問い合わせるので、ケーブルを挿し替えても直す必要がない。
+> **Note:** GNOME (Wayland) では、D-Bus のスクリーンショット API は新しめの GNOME で拒否され、
+> XWayland 側の X11 root grab は合成後の画面が入らず真っ黒になる。どちらも使えないため、
+> Mutter の ScreenCast を D-Bus で開始し、実画面の PipeWire ストリームから1フレームだけ取っている
+> （`mm-shot.py`）。どのモニタを撮るかは毎回 `Mutter.DisplayConfig` に問い合わせるので、
+> ケーブルを挿し替えても直す必要はない。
 
-> **Note:** `scripts/mm-shot.js` は Electron で `localhost:8080` を隠しウィンドウで開き直す**旧方式**。
-> 現在の `mm-shot.sh` からは呼ばれていないが、配布対象には残っている（`SHOT_WAIT` はこちらの環境変数）。
+## 画像の同期
 
-## 画像同期 (sync-images.sh)
+`sync-images.sh` は、操作元の画像フォルダを表示機の `~/signage/slides/` へ片方向で同期する
+（rsync ベース）。正本は操作元側で、表示機はその鏡でしかない。元で消した画像は表示機からも消えるが、
+実体は `~/signage/.trash/<日付>/` へ退避してから消す。
 
-サイネージに映す画像の正本は Windows の `D:` にあり、X13 側はその鏡でしかない。
-`sync-images.sh` は WSL 上で動き、差分だけを X13 へ送る。元で消えた画像は X13 からも取り除く。
-
-```
-D:\photos\_SYNC\r5\                 →  X13: ~/signage/slides/r5/
-D:\...\tate\portrait\             →  X13: ~/signage/slides/tate/
-消えた画像                            →  X13: ~/signage/.trash/<日付>/<フォルダ名>/
-```
-
-同期ペアを増やすときは、スクリプト冒頭の `PAIRS` に「元パス|X13 側のフォルダ名」を1行足すだけでよい。
+同期元のパスは、配布先ホストと同じ `signage.conf` に書く。このファイルは `.gitignore` 済みで、
+個人のフォルダ構成がリポジトリに入らないようにしてある。ひな形は `signage.conf.example`。
 
 ```bash
 ./sync-images.sh --dry-run   # 何が転送・削除されるかだけ表示する
 ./sync-images.sh             # 実行
 ```
 
-### 自動実行
+自動実行したい場合は、操作元の systemd user timer から呼ぶ。ユニットは環境ごとに違うので
+同梱していない。`Persistent=true` を付けておくと、指定時刻に PC が落ちていても次の起動直後に取り戻す
+（cron だとその日のぶんは飛ぶ）。
 
-WSL の systemd user timer が毎日 4:00 に起動する。ユニットは WSL 側の `~/.config/systemd/user/` にあり、
-リポジトリには含まれない（X13 ではなく母艦の設定のため）。
-
-> **Warning:** ユニットの `ExecStart` はこのリポジトリのパスを**絶対パスで直書き**している。
+> **Warning:** ユニットの `ExecStart` にはスクリプトの絶対パスを書くことになる。
 > リポジトリを移動・改称すると、タイマーは今までどおり発火するのにスクリプトが見つからず失敗する。
-> 画面は正常に動き続けるので、写真が増えないことに気づくまで数日かかる。
-> 移動したら `~/.config/systemd/user/x13-sync-images.service` の `ExecStart` と `Documentation` を
-> 直し、`systemctl --user daemon-reload` してから手動で1回走らせて確認する。
-> （2026-08-03 の `x13` → `yp-signage` 改称で実際に踏みかけた）
+> 画面は正常に動き続けるので、**写真が増えないことに気づくまで数日かかる**。
 
-```bash
-systemctl --user list-timers x13-sync-images   # 次回実行時刻
-systemctl --user start x13-sync-images.service # 手動起動
-tail ~/.local/state/x13/sync-images.log        # 実行記録
-```
+### rsync のオプションを2つだけ変えている
 
-`Persistent=true` を付けてあるので、4:00 に PC が落ちていても、次に WSL が起動した直後に取り戻す。
-cron だとその日の分は実行されずに飛ぶ。
+意図して選んだものが2つある。どちらも外すと毎回全量を再転送する羽目になる。
 
-> **Note:** 実行記録の正本は `~/.local/state/x13/sync-images.log`。journal には開始と終了しか残らない。
-> この環境の journald は短命サービスの標準出力を取りこぼし、「一部の行だけ残る」記録になって
-> 誤読を招くため、意図的に stdout へ流していない（異常時のみ stderr に出す）。
-
-### rsync の判定条件
-
-意図して選んだオプションが2つある。どちらも外すと毎回 3GB を再転送する羽目になる。
-
-- **`-rt`（`-a` ではなく）** — `-a` に含まれる権限・所有者のコピーは、Windows のドライブ相手には意味がない。
-  WSL から見た `D:` のファイルは全部が同じ偽の権限値で、それを Linux 側へ持ち込むと毎回「権限が違う」と判定される。
-- **`--size-only`** — サイズが同じなら同一とみなす。過去に手動コピーした約1,800枚は更新時刻が壊れており、
-  時刻で比較すると中身が同じファイルを毎晩送り直すことになる。
-  引き換えに「バイト数が同一の別画像への差し替え」は検知できないが、画像は追加・削除されるもので
-  中身が書き換わるものではないため実害はない。
-
-初回に `--size-only` で流した時点で 1,806 枚の時刻が**データ転送なしで**修復され、以降の実行は3秒・転送ゼロで終わる。
+- **`-rt`（`-a` ではない）** — `-a` に含まれる権限・所有者のコピーは、Windows のドライブを
+  マウントして読んでいる場合に意味がない。すべて同じ偽の権限値になり、Linux 側へ持ち込むと
+  毎回「権限が違う」と判定されて転送し直しになる
+- **`--size-only`** — サイズが同じなら同一とみなす。手動コピーで増えた画像は更新時刻が壊れていることが多く、
+  時刻で比較すると中身が同じファイルを毎晩送り直すことになる。引き換えに「バイト数が同一の別画像への
+  差し替え」は検知できないが、画像は追加・削除されるもので中身が書き換わるものではないため実害はない
 
 > **Warning:** 退避先の `.trash/` は必ず `slides/` の**外**に置くこと。
-> 中に置くと yp-slideshow の再帰スキャンがゴミ箱の画像まで拾い、消したはずの画像がスライドショーに出続ける。
-> 30日を超えた退避世代はスクリプト末尾で自動削除する。
+> 中に置くと背景スライドショーの再帰スキャンがゴミ箱の画像まで拾い、
+> 消したはずの画像が延々と表示され続ける。
 
-## MagicMirror モジュール
+## 自作モジュール
 
-config.js で3つのモジュールを配置している。
+### yp-slideshow — 背景スライドショー
 
-### clock (組み込み)
+`position: "fullscreen_below"` で画面全体に画像を敷く。node_helper が画像フォルダを再帰スキャンし、
+Express の静的ルート `/yp-slideshow/images` で配信する。フォルダを増やしても設定変更は要らない。
 
-右上に時計を表示。日付は `YYYY/MM/DD（dd）` 形式（dd は ja locale で漢字1文字の曜日）。
-`classes: "r5-plate"` で半透明ぼかしプレートを敷く。
+対応拡張子は `.jpg` `.jpeg` `.png` `.gif` `.webp` `.bmp`。`.` で始まるフォルダは対象外
+（同期ツールの管理フォルダを拾わないため）。
 
-### yp-slideshow (自作: 背景スライドショー)
+外部から操作するための HTTP エンドポイントを持つ（`mm-ctl.sh` が叩いているのはこれ）。
+MagicMirror の `ipWhitelist` の内側にあり、外部からは届かない。
 
-`position: "fullscreen_below"` で画面全体に画像を敷く。
-node_helper が `~/signage/slides` を**再帰スキャン**し、Express の静的ルート `/yp-slideshow/images` で配信する。
-`slides/r5/`・`slides/tate/` のようにフォルダを分けて置けば、すべてが1本の再生リストにまとまる。
-フォルダを増やしても設定変更は要らない。
-フロント側は URL 一覧を受け取り、60秒ごとにフェード切替（1200ms）でシャッフル巡回する。
-
-対応拡張子: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`
-
-`.` で始まるフォルダはスキャン対象から外す。同期元に紛れている Syncthing の管理フォルダ（`.stversions` 等）を拾わないため。
-
-> **Note:** 再帰スキャンでは画像名が `r5/foo.png` のようにスラッシュを含む。
-> URL 化するときは `encodeURIComponent()` を丸ごと掛けてはいけない。区切りの `/` まで `%2F` に変換され、
+> **Note:** 再帰スキャンでは画像名が `sub/foo.png` のようにスラッシュを含む。
+> URL 化するときに `encodeURIComponent()` を丸ごと掛けてはいけない。区切りの `/` まで `%2F` になり、
 > パスが壊れて画像が1枚も表示されなくなる。セグメントごとに符号化してから `/` で繋ぎ直すこと。
 
-### yp-oshical (自作: 配信予定バー)
+> **Note:** 画像リストは10分ごとに取り直すが、そのとき**並びを作り直してはいけない**。
+> 表示位置は「何枚目か」という index で持っているため、並びが変われば同じ index が別の画像を指し、
+> 手動の前後送りが無関係な画像を出す。増えた画像だけを既存の並びに差し込むこと。
+> 再取得をまたがないと再現しないので、直した直後の確認では気づけない。
 
-推しスケ (oshi-sche-webapp) の iCal フィードを 5分ごとに取得し、今から先の配信予定を2段カードで並べる。
-下バー全幅に配置。`classes: "r5-plate"` で半透明プレート付き。
+### yp-oshical — 予定バー
 
-**枠は 4列 × 5行 = 20 で固定。何日先まで出すかは決めていない。** 今日ぶんを上から詰めて、
-余ったら明日、それでも余ったら明後日と、20 枠が埋まるまで先へ進む。予定が立て込む日は今日だけで
-埋まり、週末の夜など少ない日は数日先まで届く。列数は `config.js` の `oshiCols`（既定4）、
-行数は `maxEntries ÷ 列数` で決まる。
+iCal(ICS) フィードを5分ごとに取得し、今から先の予定を2段カードで並べる。外部ライブラリは使わず、
+ICS を手でパースしている（行の折り返しを戻して VEVENT を走査するだけで足りる）。
+
+枠は「列数 × 5行」で固定する。今日ぶんを上から詰め、余ったら明日、それでも余ったら明後日と、
+枠が埋まるまで先へ進む。予定が立て込む日は今日だけで埋まり、少ない夜は数日先まで届く。
+**何日先まで出すかを決めない**のは、画面の大きさのほうが先に決まっているからである。
 
 表示の決まりごと:
 
-- **日付セル** — 今日以外の日は頭に「07/28（火）」を1枠置く。列は送らず、時刻の流れの中にそのまま挟む
-- **色は2色** — 今日は青緑 `#7fd4cc`、翌日以降はすべて空色 `#8fb4e8`。日ごとに色を変えない
-  （日の区切りは日付セルが担っており、色数を増やすと配信中のオレンジ `#ff9a3d` が埋もれるため）
-- **＋他 N 件** — 入り切らない日は最後の1枠を「＋ 他 N 件」に使う。件数はその日の実数
-- **枠は常に引く** — 予定が少なくても 20 枠ぶんの区切り線と左バーを薄く出す。件数で帯の高さや
-  列幅が変わると、同じ場所の表示が日によって別物に見えてしまうため
+- 日付セル — 今日以外の日は頭に「07/28（火）」を1枠挟む。列は送らず、時刻の流れの中に置く
+- 色は2色 — 今日と、翌日以降。日ごとに色を増やすと、配信中を示すオレンジが埋もれる
+- 枠は常に引く — 予定が少なくても枠ぶんの区切り線を薄く出す。件数で帯の高さや列幅が変わると、
+  同じ場所の表示が日によって別物に見えてしまう
 
-データ処理の流れ:
+予定が1件も無いとき、既定ではバーごと畳んで背景画像だけにする（`hideIfEmpty`）。
+`false` にすると「この先の予定なし」と書いた枠を1つ出す。**どちらが良いかは運用による。**
+畳むと画面は静かになるが、「モジュールが落ちた」のか「予定が無い」のかを画面から区別できなくなる。
 
-1. node_helper が iCal URL を fetch し、テキストを手動パース（外部ライブラリなし）
-2. iCal の折り返し行（行頭スペース/タブ）を結合してから VEVENT を走査
-3. DTSTART が UTC (`...Z`) なら JST (+9h) に変換、`VALUE=DATE` なら終日判定
-4. 日付 (YYYYMMDD) ごとに仕分ける。今日は「現在の時間帯の頭」以降だけ、明日以降は時刻の足切り無し
-5. 日付の昇順に、20 枠が埋まるまでの日だけ front へ返す（`{ num, today, label, total, events }`）
-6. SUMMARY の `【推し名】予定タイトル` を正規表現で name と title に分解
-7. フロントは CSS Grid (`grid-auto-flow: column`) で上→下に詰めて右の列へ流す。1件は
-   `grid-template-columns: auto 1fr` の2カラムで、auto 列が全行の最大幅に揃うため時刻が縦一列に揃う
+> **Note:** フロント側は「配列の先頭＝今日」と決め打ちしてはいけない。node_helper は予定のある日しか
+> 返さないので、今日の予定がゼロだと先頭が未来の日になる。日付セルが付かないまま今日の色で描かれ、
+> 数週間先の予定が今日のものに見える。判定には helper が付ける `day.today` を使う。
 
-> **Note:** front は「配列の先頭＝今日」と決め打ちしてはいけない。node_helper は予定がある日しか
-> 返さないので、今日の予定がゼロだと先頭が未来の日になる。日付セルが付かず今日の色で描かれ、
-> 数週間先の予定が今日のものに見える。判定には helper が付ける `day.today` を使うこと。
+> **Note:** ICS には差分取得も期間指定も無く、購読側は毎回ファイル全体を受け取る（実測 88KB / 504件）。
+> そのため先読みを何日に伸ばしても取得・解析の負荷は変わらない（解析は元から全件1周・3〜7ms）。
 
-> **Note:** ICS には差分取得も期間指定も無く、購読側は毎回ファイル全体（約 88KB / 504 件）を受け取る。
-> そのため先読みを何日に伸ばしても取得・解析の負荷は変わらない（解析は元から全件1周・実測 3〜7ms）。
-> 増えるのは front へ渡す配列の長さだけで、それも 20 枠ぶん（実測 0.7〜2.1KB）で頭打ちになる。
+作者は自作の配信予定管理（推しスケ）が吐く ICS を繋いでいるが、Google カレンダーの
+「限定公開URL(iCal形式)」でも、ICS を吐けるサービスなら何でも動く。
+`SUMMARY` が `【名前】タイトル` の形式なら2段に分けて表示し、そうでなければ1段で出す。
 
-## custom.css の設計
+### yp-monthcal — 月カレンダー
 
-背景がスライドショー画像なので、その上に載る文字の可読性を確保する必要がある。
+当月のグリッドだけを出す。予定は載せない（それは下バーの仕事）。土曜は青、日曜と祝日は赤。
+祝日判定は依存ゼロの自前実装で、固定祝日・ハッピーマンデー・春分秋分・振替休日・国民の休日に対応する。
 
-- `:root` の `--gap-body-*` を 20px に詰めて、パネルを画面の角に寄せる
-- `.module` に `text-shadow` でソフトな黒フチ
-- `.r5-plate` クラスで `backdrop-filter: blur(3px)` + 薄い黒背景の半透明プレート
-- `.r5-plate` 内の全要素を `color: #fff` + `opacity: 1` に統一（MM 既定の灰色階調を上書き）
-- `.yp-slideshow` 自体は `text-shadow: none` で画像に影を載せない
+### yp-demoweather — デモ用の天気パネル
 
-## 配布 (deploy.sh)
+`SIGNAGE_DEMO=true` のときだけ、組み込みの天気モジュールの代わりに出る。通信せず、
+固定の5日予報を描くだけの100行ほどのモジュールである。
 
-`deploy.sh` は WSL 側のファイルを X13 の所定パスへ scp で転送する。
+組み込み天気を使わないのは、あれが provider（OpenWeatherMap 等）を通して実際にネットへ
+取りに行く作りだからで、偽のデータを流すには MagicMirror² 本体側に provider を足すことになる。
+本体を改変しない方針に反するので、見た目だけ揃えたものを別に置いた。
 
-配布先の対応:
+## 機能のオン/オフ
 
-| ソース (WSL) | 配布先 (X13) |
+使わないと決めた機能は `.env` で止められる。
+
+| キー | 効果 |
+|---|---|
+| `SIGNAGE_OSHICAL_ENABLED=false` | 下バー（予定）を出さない |
+| `SIGNAGE_WEATHER_ENABLED=false` | 天気を出さない |
+
+iCal URL や API キーを消しても止まるが、それだと「次に何を入れていたか」が残らない。
+値は残したまま止められるようにしてある。
+
+## custom.css の考え方
+
+背景がスライドショー画像なので、その上に載る文字の可読性をどう確保するかがすべてである。
+
+- 画面端の余白を詰めて、パネルを画面の角へ寄せる
+- 文字に `text-shadow` でソフトな黒フチを付ける
+- `.r5-plate` クラスで、背景ぼかし（`backdrop-filter: blur(3px)`）＋薄い黒の半透明プレートを敷く
+- プレート内の文字色を白で統一する（MagicMirror 既定の灰色階調を上書きする）
+- 背景画像そのものには影を載せない
+
+## 配布先の対応表
+
+`deploy.sh` は次のとおりファイルを置く。手でコピーする場合もこの表に従えばよい。
+
+| リポジトリ側 | 表示機側 |
 |---|---|
 | `scripts/`（`*.sh` と `mm-shot.py` / `mm-shot.js` / `README.md`） | `~/run/` |
 | `magicmirror/config.js` | `~/MagicMirror/config/config.js` |
-| `magicmirror/.env` | `~/MagicMirror/.env`（config/ ではなくルート） |
+| `magicmirror/.env` | `~/MagicMirror/.env`（`config/` ではなくルート） |
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
-| `magicmirror/modules/yp-slideshow/*` | `~/MagicMirror/modules/yp-slideshow/` |
-| `magicmirror/modules/yp-oshical/*` | `~/MagicMirror/modules/yp-oshical/` |
-| `magicmirror/modules/yp-monthcal/*` | `~/MagicMirror/modules/yp-monthcal/` |
+| `magicmirror/modules/yp-*/` | `~/MagicMirror/modules/yp-*/` |
+| `samples/` | `~/MagicMirror/samples/`（デモモードが見る背景画像） |
 
-`legacy/` は配布対象外。X13 側に残っている旧 `~/r5.sh` や `~/run/signage-*.sh` は今後更新されない。
+`legacy/` は配布しない。MagicMirror² に移る前の feh / mpv 世代のスクリプトで、
+現行では1本も使っていない。何を試して何を捨てたかの記録として残してある。
 
-`host/monitors.xml` は GNOME が随時上書きするファイルなので、deploy.sh では配布しない。
+`host/monitors.xml` も配布しない。GNOME が随時上書きするファイルで、**実機側が正本**である。
+リポジトリのものは構成の考え方を読むための写しで、モニタの識別子はこの機体のものなので
+そのままでは使えない。変更は表示機の［設定］→［ディスプレイ］で行い、結果を吸い上げる向きだけにする。
+逆向きに上書きすると、実機にしか無い構成が消えて画面の向きを見失う。
 
-> **Warning:** このファイルは**実機側が正本**で、リポジトリのものは写し（バックアップ）。
-> 変更するときは X13 の［設定］→［ディスプレイ］で操作し、結果をこちらへ吸い上げる。
->
-> ```bash
-> scp x13:~/.config/monitors.xml ~/Batches/yp-signage/host/monitors.xml
-> ```
->
-> **逆向きに上書きしないこと。** 実機にしか無い構成が消え、画面の向きを見失う。
+## ライセンスと免責
 
-## 経緯メモ
+MIT。改変・再配布・商用利用のいずれも自由で、好きに作り直してよい。
 
-旧構成では mpv や feh でスライドショーを流していた（`legacy/signage-start.sh`, `同 r5.sh`）。
-MagicMirror² に移行して時計やカレンダーを重ねられるようにした。
-Sway への移行も検討したが、2026-07-18 に却下し、GNOME (Wayland) + XWayland 構成で安定稼働中。
-検証用の Sway 設定は 2026-08-03 のリポジトリ再編で削除した（履歴は vault `40-Projects/X13/core/sway-migration.md`）。
+無保証で、**サポートはしない**。Issue や Pull Request を開いてもらっても対応できない。
+そのうえで役に立ちそうなら、遠慮なく持って行って構わない。
 
-## 接続情報
-
-X13: 固定IP 192.168.x.x / user youruser / `ssh x13` 鍵認証済み。
+MagicMirror² 本体（MIT）に依存している。本体はこのリポジトリには含まれていない。
