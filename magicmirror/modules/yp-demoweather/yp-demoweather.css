@@ -1,0 +1,23 @@
+/* yp-demoweather — 組み込み天気の forecast と同じ見え方に寄せるための最小の調整。
+ * 配色・文字色は custom.css の .r5-plate 側が受け持つので、ここでは間隔だけを整える。
+ */
+
+.yp-demoweather table {
+	border-spacing: 0;
+	border-collapse: separate;
+}
+
+.yp-demoweather td {
+	padding: 0 6px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.yp-demoweather .weather-icon {
+	padding-right: 10px;
+	font-size: 1.15em;
+}
+
+.yp-demoweather .min-temp {
+	opacity: 0.7;
+}
