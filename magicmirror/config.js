@@ -1,5 +1,5 @@
-/* MagicMirror² config — X13 サイネージ構成
- * 正本: ~/Batches/yp-signage/magicmirror/config.js → 配布先 ~/MagicMirror/config/config.js
+/* MagicMirror² config — 縦置き（1080×1920）サイネージ構成
+ * 置き場所: ~/MagicMirror/config/config.js
  *
  * 設定値は .env（配布先では ~/MagicMirror/.env）から読む。このファイルを開かずに
  * 解像度・表示秒数・iCal URL を変えられるようにするため。項目の一覧は .env.example。
@@ -32,14 +32,30 @@ const bool = (v, d) => (v === undefined || v === "" ? d : v === "true");
 
 // --- 一時上書き（.env を書き換えずにその場だけ変える） ---
 // mm-start.sh が呼び出し側の環境変数をそのまま MM へ引き渡す。
-//   X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
-// 未指定でも空文字として渡ってくるため、空なら .env 側の値を使う。
-const oshiCols = num(str(env.X13_COLS, env.SIGNAGE_OSHI_COLS), 4) === 3 ? 3 : 4;
-const oshiNow = str(env.X13_OSHI_NOW, ""); // OshiCal のデバッグ現在時刻（空なら実時刻）
+//   SIGNAGE_OSHI_COLS=3 SIGNAGE_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
+// mm-start.sh は「呼び出し側で指定されたものだけ」を引き渡す。空文字で渡すと
+// process.loadEnvFile() が既存の環境変数を上書きしない仕様のせいで .env 側の値が
+// 読まれなくなるため、未指定の変数は systemd-run に渡さない。
+const oshiCols = num(env.SIGNAGE_OSHI_COLS, 4) === 3 ? 3 : 4;
+const oshiNow = str(env.SIGNAGE_OSHI_NOW, ""); // yp-oshical のデバッグ現在時刻（空なら実時刻）
 const oshiMax = oshiCols * 5; // 列数×5行を表示上限に（front は maxEntries÷列数 を行数の上限に使う）
 
 const calendarIcs = str(env.SIGNAGE_CALENDAR_ICS, ""); // 空なら「配信予定」バーを出さない
 const owmApiKey = str(env.SIGNAGE_OWM_API_KEY, ""); // 空なら天気パネルを出さない
+
+// --- 機能のオン/オフ（既定は両方オン） ---
+// 値（URL・APIキー）が無ければどのみち出ないが、それだけに頼ると「使わない」を
+// 設定に書き残せない。URL を消して止めた人は、次に何が入っていたかを思い出せなくなる。
+// 明示のスイッチがあれば、値を残したまま止めておける。
+const oshiEnabled = bool(env.SIGNAGE_OSHICAL_ENABLED, true);
+const weatherEnabled = bool(env.SIGNAGE_WEATHER_ENABLED, true);
+
+// --- デモモード ---
+// 何も用意しなくても完成した画面を出すための設定。同梱のサンプル画像を背景にし、
+// 配信予定はそれらしいものを組み立て、天気はデモ専用モジュールに差し替える。
+// 入れたばかりの人が「動いている状態」を先に見られるようにするためのもの。
+// スクリーンショットもこれで撮れば、写り込む画像の権利を考えずに済む。
+const demo = bool(env.SIGNAGE_DEMO, false);
 
 let config = {
 	address: "localhost",
@@ -77,7 +93,9 @@ let config = {
 			module: "yp-slideshow",
 			position: "fullscreen_below",
 			config: {
-				imageDir: str(env.SIGNAGE_IMAGE_DIR, null),
+				demo, // true かつ imageDir 未指定なら同梱の samples/ を見る
+				// デモでは手元の画像フォルダを見ない（設定が残っていても無視する）。
+				imageDir: demo ? null : str(env.SIGNAGE_IMAGE_DIR, null),
 				logPath: str(env.SIGNAGE_LOG_PATH, null),
 				slideInterval: num(env.SIGNAGE_SLIDE_INTERVAL, 60000), // 1枚60秒（feedback 2026-07-18）
 				fadeSpeed: num(env.SIGNAGE_FADE_SPEED, 1200),
@@ -98,7 +116,7 @@ let config = {
 			},
 		},
 		// 配信予定（iCal購読）＝下部バー(bottom_bar)。今日のこれから＋明日。ここだけ下に置く。
-		...(calendarIcs
+		...(oshiEnabled && (demo || calendarIcs)
 			? [
 					{
 						// 自作の日間カレンダー（案C=2段カード）。組み込み calendar では2段・縦揃えが
@@ -107,11 +125,15 @@ let config = {
 						position: "bottom_bar",
 						classes: "r5-plate", // 背景画像の上で読みやすくする半透明プレート（custom.css）
 						config: {
-							icsUrl: calendarIcs,
+							demo, // true なら通信せず、それらしい予定を組み立てて出す
+							icsUrl: demo ? "" : calendarIcs,
 							maxEntries: oshiMax,
 							updateInterval: 5 * 60 * 1000, // 5分ごとに取り直す
-							columns: oshiCols, // 予定の列数（front が body class x13-cols-N に反映）
+							columns: oshiCols, // 予定の列数（front が body class yp-cols-N に反映）
 							debugNow: oshiNow, // デバッグ現在時刻（空なら実時刻）
+							// 予定が1件も無いとき下バーごと畳む。false にすると
+							// 「この先の予定なし」の枠を1つ出す（モジュール側の既定コメント参照）。
+							hideIfEmpty: true,
 							// 配信の開始時刻ちょうどに、その予定の枠を60秒だけ光らせる。
 							// firingStyle は光り方（CSS の f1〜f5）。4 = 0.9秒周期のはっきりした明滅。
 							// ゆっくり変化する案（1〜3・5）は視界の端だと目が慣れて気づけないため、
@@ -131,7 +153,13 @@ let config = {
 		},
 		// 天気＝上バー右：5日予報のみ（現在の気温 weather-current は 2026-07-21 に非表示化）。
 		// OWM 無料キーがある時だけ。weather-forecast クラスで段を割り振る。
-		...(owmApiKey
+		// デモのときは、通信しないデモ専用の天気パネルに差し替える。
+		// 組み込み天気は provider が実際にネットへ取りに行く作りで、偽データを流すには
+		// MagicMirror 本体側に provider を足すしかない（本体は改変しない方針に反する）。
+		...(weatherEnabled && demo
+			? [{ module: "yp-demoweather", position: "top_bar", classes: "r5-plate weather-forecast" }]
+			: []),
+		...(weatherEnabled && !demo && owmApiKey
 			? [
 					{
 						module: "weather",

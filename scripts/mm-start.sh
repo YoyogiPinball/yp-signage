@@ -1,13 +1,16 @@
 #!/bin/bash
-# MagicMirror 起動（X13 の GNOME/XWayland 画面に表示）。
+# MagicMirror 起動（表示機の GNOME/XWayland 画面に表示）。
 # ssh 越しに起動しても死なないよう、user の transient service として起動する。
 #   従来の nohup 起動は、ssh セッション終了時に logind(KillUserProcesses=yes) が
 #   セッションごと SIGTERM するため、起動直後に殺されていた。systemd-run --user で
 #   ssh セッションの scope から切り離し、user manager 配下で常駐させる。
-# 使い方: bash ~/run/mm-start.sh   （母艦からは ssh x13 'bash ~/run/mm-start.sh'）
-# 表示切替（任意）: 呼び出し側の環境変数を MM へ引き渡す。
-#   X13_COLS=3|4（予定の列数）   X13_OSHI_NOW=2026-07-19T06:00（デバッグ現在時刻）
-#   例: X13_COLS=3 X13_OSHI_NOW=2026-07-19T06:00 bash ~/run/mm-start.sh
+# 使い方: bash ~/run/mm-start.sh   （手元からは ssh <表示機> 'bash ~/run/mm-start.sh'）
+# 一時上書き（任意）: 呼び出し側の環境変数を MM へ引き渡す。下の OVERRIDABLE に
+# 載っている変数だけが対象で、それ以外は ~/MagicMirror/.env を書き換えて変える。
+#   例: SIGNAGE_DEMO=true bash ~/run/mm-start.sh
+#       SIGNAGE_OSHI_COLS=3 bash ~/run/mm-start.sh
+# 指定された変数だけを渡すのが要点。空文字で渡すと「変数が存在する」扱いになり、
+# 既存の環境変数を上書きしない process.loadEnvFile() の仕様で .env 側の値が読まれなくなる。
 set -e
 
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
@@ -21,16 +24,25 @@ systemctl --user reset-failed magicmirror.service 2>/dev/null || true
 pkill -f "js/electron.js" 2>/dev/null || true
 sleep 1
 
+# コマンド行で一時的に上書きできる変数。ここに足せば引き渡す対象が増える。
+# 値が入っているものだけを渡す（空文字で渡さない。冒頭のコメント参照）。
+OVERRIDABLE=(SIGNAGE_DEMO SIGNAGE_OSHI_COLS SIGNAGE_OSHI_NOW)
+EXTRA_ENV=()
+for v in "${OVERRIDABLE[@]}"; do
+	if [ -n "${!v:-}" ]; then
+		EXTRA_ENV+=(--setenv="$v=${!v}")
+	fi
+done
+
 # Electron を X11(XWayland) 固定で常駐起動。WAYLAND_DISPLAY を空にして Wayland を掴ませない。
 systemd-run --user \
 	--unit=magicmirror \
-	--description="MagicMirror signage (X13)" \
+	--description="MagicMirror signage" \
 	--working-directory="$HOME/MagicMirror" \
 	--setenv=DISPLAY="$DISPLAY_ID" \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
-	--setenv=X13_COLS="${X13_COLS:-}" \
-	--setenv=X13_OSHI_NOW="${X13_OSHI_NOW:-}" \
+	"${EXTRA_ENV[@]}" \
 	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --disable-http-cache
 
 echo "MagicMirror起動（user service: magicmirror）"
