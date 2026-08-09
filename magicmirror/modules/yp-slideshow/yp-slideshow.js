@@ -6,12 +6,18 @@
  */
 Module.register("yp-slideshow", {
 	defaults: {
+		demo: false, // デモモード。imageDir 未指定なら同梱の samples/ を表示する
 		imageDir: null, // null なら node_helper 側の既定 ~/signage/slides（サブフォルダも再帰で拾う）
 		logPath: null, // 表示履歴の書き出し先。null なら node_helper 側の既定 ~/signage/r5-now.log
 		slideInterval: 8000, // 1枚の表示時間(ms)
 		fadeSpeed: 1200, // 切替時のフェード時間(ms)
 		shuffle: true, // 表示順をシャッフルするか
 		refreshInterval: 10 * 60 * 1000, // 画像一覧を取り直す間隔(ms)
+		contextMenu: true, // 画面を右クリックで操作メニューを出す
+		// メニューに「終了」を出すか。MagicMirror 本体は窓を閉じても作り直す作りなので
+		// （js/electron.js の window-all-closed が createWindow を呼ぶ）、画面だけで
+		// 終わらせる手段がこれしかない。誤操作が怖い設置なら false にする。
+		allowQuit: true,
 	},
 
 	getStyles() {
@@ -32,7 +38,80 @@ Module.register("yp-slideshow", {
 		document.addEventListener("keydown", (e) => {
 			if (e.key === "ArrowRight") this.step(1);
 			else if (e.key === "ArrowLeft") this.step(-1);
+			else if (e.key === "Escape") this.closeMenu();
 		});
+		if (this.config.contextMenu) this.setupMenu();
+	},
+
+	// --- 右クリックメニュー ---------------------------------------------
+	// メニューは body 直下に置く。モジュールの DOM は updateDom のたびに作り直されるので、
+	// wrapper の中に入れると画像が切り替わった瞬間にメニューごと消える。
+	setupMenu() {
+		this.menu = null;
+		document.addEventListener("contextmenu", (e) => {
+			e.preventDefault();
+			this.openMenu(e.clientX, e.clientY);
+		});
+		// メニュー外を左クリックしたら閉じる。メニュー自身のクリックは項目側で止める。
+		document.addEventListener("click", () => this.closeMenu());
+	},
+
+	openMenu(x, y) {
+		this.closeMenu();
+		const menu = document.createElement("div");
+		menu.className = "yp-menu";
+		menu.addEventListener("click", (e) => e.stopPropagation());
+
+		const items = [
+			["次へ", () => this.control("next")],
+			["前へ", () => this.control("prev")],
+			[this.paused ? "再開" : "一時停止", () => this.control("toggle")],
+			["上バーの板", () => this.control("topbar")],
+		];
+		for (const [label, fn] of items) {
+			menu.appendChild(this.makeMenuItem(label, () => { fn(); this.closeMenu(); }));
+		}
+
+		if (this.config.allowQuit) {
+			const sep = document.createElement("div");
+			sep.className = "yp-menu-sep";
+			menu.appendChild(sep);
+			// 終了は2段階。1回目で確認に変わり、2回目で実行する。全画面の常時表示なので、
+			// 誤って触ったときに画面が落ちると復旧に ssh が要る。
+			const quit = this.makeMenuItem("終了", () => {
+				if (quit.dataset.armed === "1") {
+					this.sendSocketNotification("YP_SLIDESHOW_QUIT");
+					this.closeMenu();
+					return;
+				}
+				quit.dataset.armed = "1";
+				quit.textContent = "本当に終了する？";
+				quit.classList.add("yp-menu-danger");
+			});
+			menu.appendChild(quit);
+		}
+
+		document.body.appendChild(menu);
+		// 画面の端で切れないよう、はみ出すぶんだけ内側へ寄せる。
+		const r = menu.getBoundingClientRect();
+		menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+		menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+		this.menu = menu;
+	},
+
+	makeMenuItem(label, onClick) {
+		const item = document.createElement("div");
+		item.className = "yp-menu-item";
+		item.textContent = label;
+		item.addEventListener("click", onClick);
+		return item;
+	},
+
+	closeMenu() {
+		if (this.menu) {
+			this.menu.remove();
+			this.menu = null;
+		}
 	},
 
 	// 手動で dir 枚ぶん送る（+1=次 / -1=前）。オートのタイマーもリセットして継続。
@@ -80,6 +159,7 @@ Module.register("yp-slideshow", {
 		// 置き場所の設定（imageDir / logPath）はここでまとめて helper へ渡す。helper は
 		// ディスクを触る側なので、パスの既定値も helper 側が持つ（null なら既定に落ちる）。
 		this.sendSocketNotification("YP_SLIDESHOW_GET_IMAGES", {
+			demo: !!this.config.demo, // true かつ imageDir 未指定なら同梱の samples/ を見る
 			imageDir: this.config.imageDir,
 			logPath: this.config.logPath,
 		});

@@ -44,3 +44,43 @@
 	letter-spacing: 0.05em;
 	backdrop-filter: blur(4px);
 }
+
+/* 右クリックメニュー。body 直下に置くので、モジュール領域の座標に依存しない。
+   縦置き 1080×1920 を1m 以上離れて見る前提なので、項目は大きめに取る。 */
+.yp-menu {
+	position: fixed;
+	z-index: 9999;
+	min-width: 240px;
+	padding: 6px 0;
+	border-radius: 10px;
+	background: rgba(20, 20, 20, 0.92);
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(6px);
+	color: #fff;
+	font-size: 26px;
+	line-height: 1.4;
+	text-shadow: none;
+	user-select: none;
+}
+
+.yp-menu-item {
+	padding: 12px 22px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.yp-menu-item:hover {
+	background: rgba(255, 255, 255, 0.14);
+}
+
+/* 終了は1回目のクリックで確認に変わる。色でそれと分かるようにする。 */
+.yp-menu-danger {
+	color: #ff8a80;
+}
+
+.yp-menu-sep {
+	height: 1px;
+	margin: 6px 0;
+	background: rgba(255, 255, 255, 0.15);
+}

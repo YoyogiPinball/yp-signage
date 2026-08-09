@@ -89,13 +89,30 @@ module.exports = NodeHelper.create({
 	writeNow() {
 		const body = this.recent.map((r) => `${r.time}  ${r.label || NO_LABEL}  ${r.file}`).join("\n");
 		try {
+			// 置き場所のフォルダごと作る。既定は ~/signage/ で、画像を置く前の環境には
+			// まだ存在しない。無いまま書こうとすると画像が切り替わるたびに ENOENT が出る。
+			fs.mkdirSync(path.dirname(this.logPath), { recursive: true });
 			fs.writeFileSync(this.logPath, body + "\n");
 		} catch (e) {
-			console.error(`[yp-slideshow] 表示履歴を書けません: ${this.logPath} (${e.message})`);
+			// 表示履歴は画面には関係しない補助機能なので、書けなくても止めない。
+			// ただし毎回吐くとログが埋まるため、警告は最初の1回だけにする。
+			if (!this.logWarned) {
+				this.logWarned = true;
+				console.error(`[yp-slideshow] 表示履歴を書けません（以後この警告は出しません）: ${this.logPath} (${e.message})`);
+			}
 		}
 	},
 
 	socketNotificationReceived(notification, payload) {
+		if (notification === "YP_SLIDESHOW_QUIT") {
+			// 右クリックメニューの「終了」。MagicMirror 本体は窓を閉じても作り直すため
+			// （js/electron.js の window-all-closed）、プロセスごと終わらせるしかない。
+			// process.exit で叩き落とさず SIGINT を送るのは、本体がこれを受けて
+			// 各 node_helper の stop() を呼んでから終わる作りになっているため。
+			console.log("[yp-slideshow] 画面から終了を要求されたので MagicMirror を停止します");
+			process.kill(process.pid, "SIGINT");
+			return;
+		}
 		if (notification === "YP_SLIDESHOW_NOW") {
 			this.recordNow(payload.url, payload.reason);
 			return;
@@ -105,8 +122,15 @@ module.exports = NodeHelper.create({
 			return;
 		}
 		if (notification !== "YP_SLIDESHOW_GET_IMAGES") return;
-		const imageDir = payload.imageDir || DEFAULT_DIR;
-		this.logPath = payload.logPath || DEFAULT_LOG;
+		// デモモードでは同梱のサンプル画像を見る。MagicMirror のルート直下に置く前提で、
+		// global.root_path（MM 本体が入れている絶対パス）から解決する。
+		// 手元の環境の絶対パスを config へ書かせないための逃げ道でもある。
+		const demoDir = payload.demo && global.root_path ? path.join(global.root_path, "samples") : null;
+		const imageDir = payload.imageDir || demoDir || DEFAULT_DIR;
+		// デモでは表示履歴を一時ディレクトリへ逃がす。試しに動かしただけの人の
+		// ホームに ~/signage/ を勝手に作らないため。
+		const demoLog = payload.demo ? path.join(os.tmpdir(), "yp-slideshow-demo.log") : null;
+		this.logPath = payload.logPath || demoLog || DEFAULT_LOG;
 		this.ensureRoute(imageDir);
 
 		let images = [];
@@ -121,8 +145,14 @@ module.exports = NodeHelper.create({
 				// encodeURIComponent はセパレータの "/" まで %2F にしてしまい URL が壊れるので、
 				// セグメントごとに符号化してから "/" で繋ぎ直す。
 				.map((f) => "/yp-slideshow/images/" + f.split("/").map(encodeURIComponent).join("/"));
+			this.scanWarned = false; // 読めたので、次に失敗したらまた知らせる
 		} catch (e) {
-			console.error(`[yp-slideshow] 画像フォルダを読めません: ${imageDir} (${e.message})`);
+			// 画像を置く前は毎回ここに来る。一覧は10分ごとに取り直すので、都度出すと
+			// ログが同じ行で埋まる。フォルダが読めるようになるまで1回だけ知らせる。
+			if (!this.scanWarned) {
+				this.scanWarned = true;
+				console.error(`[yp-slideshow] 画像フォルダを読めません: ${imageDir} (${e.message})`);
+			}
 		}
 		this.sendSocketNotification("YP_SLIDESHOW_IMAGES", { images });
 	},
