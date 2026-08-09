@@ -61,8 +61,14 @@ module.exports = NodeHelper.create({
 			[22, ["ゲーム実況（ホラー）", "歌枠 リクエスト回", "コラボ企画 前編"]],
 			[24, ["深夜のまったり作業", "寝落ち雑談", "今日のふりかえり"]],
 		];
-		const titleFor = (hour, i) => {
+		// 時間帯ごとに別のカウンタで順番に配る。全体の通し番号で選ぶと、同じ時間帯の
+		// 予定が飛び飛びの番号を引いて隣り合う枠に同じタイトルが並ぶ（22時と23時が
+		// どちらも「深夜のまったり作業」になっていた）。
+		const bandUsed = new Map();
+		const titleFor = (hour) => {
 			const band = titlesByHour.find(([until]) => hour < until) || titlesByHour[titlesByHour.length - 1];
+			const i = bandUsed.get(band[0]) || 0;
+			bandUsed.set(band[0], i + 1);
 			return band[1][i % band[1].length];
 		};
 
@@ -80,7 +86,7 @@ module.exports = NodeHelper.create({
 		let n = 0;
 		const timed = (dayOffset, hour, min) => {
 			const name = names[n % names.length];
-			const title = titleFor(hour, n);
+			const title = titleFor(hour);
 			n++;
 			lines.push("BEGIN:VEVENT", `DTSTART:${stamp(at(dayOffset, hour, min))}`, `SUMMARY:【${name}】${title}`, "END:VEVENT");
 		};
