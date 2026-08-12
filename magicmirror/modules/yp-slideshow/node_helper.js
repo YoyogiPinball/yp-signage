@@ -7,6 +7,9 @@ const express = require("express");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+// 並び順の比較はフロントと同じ実装を使う。ここだけ別の比較にすると、
+// 「一覧の順」と画面の「ファイル名順」が食い違う。
+const { naturalCompare } = require("./playback.js");
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
 const DEFAULT_DIR = path.join(os.homedir(), "signage", "slides");
@@ -36,7 +39,16 @@ module.exports = NodeHelper.create({
 		// `curl localhost:8080/yp-slideshow/control/next` のように叩くと、その cmd を
 		// フロント(yp-slideshow.js)へ内部通知し、pause/resume/next/prev を実行させる。
 		// ipWhitelist(127.0.0.1) の内側なので外部からは届かない。
-		const ALLOWED = new Set(["pause", "resume", "toggle", "next", "prev", "topbar"]);
+		const ALLOWED = new Set(["pause", "resume", "toggle", "next", "prev", "restart", "topbar"]);
+		// 値を取る操作は URL を2段にする（/control/order/shuffle）。1段のまま
+		// order-shuffle のような名前を並べると、増えるたびに一覧が伸びて綴りもゆれる。
+		const VALUES = {
+			order: new Set(["sequential", "shuffle"]),
+			repeat: new Set(["none", "all", "one"]),
+		};
+		// ここで返す ok は「要求を受け取った」という意味で、画面に反映し終えたことまでは
+		// 保証しない（実際に適用するのはフロント側）。反映の確認まで返すには、フロントから
+		// 適用済みの通知を戻す仕組みが要る。いまは操作が届いたかどうかだけを見ている。
 		this.expressApp.get("/yp-slideshow/control/:cmd", (req, res) => {
 			const cmd = req.params.cmd;
 			if (!ALLOWED.has(cmd)) {
@@ -44,6 +56,18 @@ module.exports = NodeHelper.create({
 			}
 			this.sendSocketNotification("YP_SLIDESHOW_CONTROL", { cmd });
 			res.json({ ok: true, cmd });
+		});
+		this.expressApp.get("/yp-slideshow/control/:cmd/:value", (req, res) => {
+			const { cmd, value } = req.params;
+			const allowed = VALUES[cmd];
+			if (!allowed) {
+				return res.status(400).json({ ok: false, error: `unknown cmd: ${cmd}` });
+			}
+			if (!allowed.has(value)) {
+				return res.status(400).json({ ok: false, error: `unknown value for ${cmd}: ${value}（使えるのは ${[...allowed].join(" / ")}）` });
+			}
+			this.sendSocketNotification("YP_SLIDESHOW_CONTROL", { cmd, value });
+			res.json({ ok: true, cmd, value });
 		});
 	},
 
@@ -141,7 +165,9 @@ module.exports = NodeHelper.create({
 				.readdirSync(imageDir, { recursive: true })
 				.filter((f) => IMAGE_EXT.has(path.extname(f).toLowerCase()))
 				.filter((f) => !f.split("/").some((seg) => seg.startsWith(".")))
-				.sort()
+				// 素の .sort() は文字コード順なので "10.jpg" が "2.jpg" より前に来る。
+				// 数字を数値として比べる自然順に並べ、同値になる組も順序を確定させる。
+				.sort(naturalCompare)
 				// encodeURIComponent はセパレータの "/" まで %2F にしてしまい URL が壊れるので、
 				// セグメントごとに符号化してから "/" で繋ぎ直す。
 				.map((f) => "/yp-slideshow/images/" + f.split("/").map(encodeURIComponent).join("/"));

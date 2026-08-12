@@ -47,7 +47,9 @@ deploy_signage() {
 	else
 		echo "警告: $MM/.env が無い（カレンダーと天気が出なくなる）。.env.example を参照して作成を"
 	fi
-	scp -q "$MM/modules/yp-slideshow/yp-slideshow.js" "$MM/modules/yp-slideshow/node_helper.js" "$MM/modules/yp-slideshow/yp-slideshow.css" "$HOST":'~/MagicMirror/modules/yp-slideshow/'
+	# playback.js は再生モードの状態機械。front と node_helper の両方が読むので必ず一緒に配る
+	# （これだけ古いと、モード変更や末尾の挙動が画面とテストで食い違う）。
+	scp -q "$MM/modules/yp-slideshow/yp-slideshow.js" "$MM/modules/yp-slideshow/node_helper.js" "$MM/modules/yp-slideshow/playback.js" "$MM/modules/yp-slideshow/yp-slideshow.css" "$HOST":'~/MagicMirror/modules/yp-slideshow/'
 	scp -q "$MM/modules/yp-oshical/yp-oshical.js" "$MM/modules/yp-oshical/node_helper.js" "$MM/modules/yp-oshical/yp-oshical.css" "$HOST":'~/MagicMirror/modules/yp-oshical/'
 	scp -q "$MM/modules/yp-monthcal/yp-monthcal.js" "$MM/modules/yp-monthcal/yp-monthcal.css" "$MM/modules/yp-monthcal/holidays.js" "$HOST":'~/MagicMirror/modules/yp-monthcal/'
 	scp -q "$MM/modules/yp-demoweather/yp-demoweather.js" "$MM/modules/yp-demoweather/yp-demoweather.css" "$HOST":'~/MagicMirror/modules/yp-demoweather/'

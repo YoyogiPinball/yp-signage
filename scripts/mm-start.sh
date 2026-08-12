@@ -26,7 +26,10 @@ sleep 1
 
 # コマンド行で一時的に上書きできる変数。ここに足せば引き渡す対象が増える。
 # 値が入っているものだけを渡す（空文字で渡さない。冒頭のコメント参照）。
-OVERRIDABLE=(SIGNAGE_DEMO SIGNAGE_OSHI_COLS SIGNAGE_OSHI_NOW)
+# SIGNAGE_IMAGE_DIR と SIGNAGE_SLIDE_INTERVAL も渡せるようにしてある。少数の画像を入れた
+# フォルダを短い間隔で回せば、末尾の挙動（最後で止まる・壊れ画像を飛ばす）を数十秒で確かめられる。
+# 本番のフォルダ（数千枚・1枚60秒）では末尾まで送れないため、確認のたびにここが要る。
+OVERRIDABLE=(SIGNAGE_DEMO SIGNAGE_OSHI_COLS SIGNAGE_OSHI_NOW SIGNAGE_ORDER_MODE SIGNAGE_REPEAT_MODE SIGNAGE_IMAGE_DIR SIGNAGE_SLIDE_INTERVAL SIGNAGE_LOG_PATH)
 EXTRA_ENV=()
 for v in "${OVERRIDABLE[@]}"; do
 	if [ -n "${!v:-}" ]; then

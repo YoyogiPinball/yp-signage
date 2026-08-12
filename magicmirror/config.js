@@ -40,6 +40,38 @@ const oshiCols = num(env.SIGNAGE_OSHI_COLS, 4) === 3 ? 3 : 4;
 const oshiNow = str(env.SIGNAGE_OSHI_NOW, ""); // yp-oshical のデバッグ現在時刻（空なら実時刻）
 const oshiMax = oshiCols * 5; // 列数×5行を表示上限に（front は maxEntries÷列数 を行数の上限に使う）
 
+// --- スライドショーの再生モード ---
+// 「どの順に出すか」と「最後まで来たらどうするか」は別の話なので、設定も2つに分ける。
+// 真偽値ひとつ（旧 SIGNAGE_SHUFFLE）に両方を押し込むと、「順番どおりに出して最後で止める」
+// のような組み合わせが表現できない。
+const ORDER_MODES = new Set(["sequential", "shuffle"]);
+const REPEAT_MODES = new Set(["none", "all", "one"]);
+
+// 知らない値が書かれていたら既定へ落として警告する。黙って落とすと、綴りを間違えた人が
+// 「設定したのに何も変わらない」で詰まる。旧 SIGNAGE_SHUFFLE へは戻さない（打ち間違いで
+// 別の設定が復活すると、いま何が効いているのか追えなくなる）。
+const mode = (v, allowed, fallback, name) => {
+	if (v === undefined || v === "") return null; // 未指定は「書かなかった」として扱う
+	if (allowed.has(v)) return v;
+	console.warn(`[config] ${name} に知らない値 "${v}" が入っています。${fallback} で起動します`);
+	return fallback;
+};
+
+// 旧 SIGNAGE_SHUFFLE は廃止予定。新しい2項目の**どちらも**書かれていないときだけ読む。
+// 旧 true =「シャッフルして全部繰り返す」、旧 false =「一覧順に出して全部繰り返す」。
+// 片方だけ新設定を書いた .env で旧値も混ぜると、「新しい書き方に移した」つもりの人の
+// 設定に古い値が半分だけ残る。移行の途中で挙動が読めなくなるので、混ぜずに無視する。
+const newOrder = mode(env.SIGNAGE_ORDER_MODE, ORDER_MODES, "shuffle", "SIGNAGE_ORDER_MODE");
+const newRepeat = mode(env.SIGNAGE_REPEAT_MODE, REPEAT_MODES, "all", "SIGNAGE_REPEAT_MODE");
+const legacyShuffle = bool(env.SIGNAGE_SHUFFLE, null);
+if (legacyShuffle !== null && (newOrder || newRepeat)) {
+	// 黙って捨てると「消したはずのシャッフル設定がまだ効いているのでは」と疑う羽目になる。
+	console.warn("[config] SIGNAGE_SHUFFLE は無視します（SIGNAGE_ORDER_MODE / SIGNAGE_REPEAT_MODE が書かれているため）。この行は消して構いません");
+}
+const useLegacy = legacyShuffle !== null && !newOrder && !newRepeat;
+const orderMode = newOrder ?? (useLegacy && legacyShuffle === false ? "sequential" : "shuffle");
+const repeatMode = newRepeat ?? "all";
+
 const calendarIcs = str(env.SIGNAGE_CALENDAR_ICS, ""); // 空なら「配信予定」バーを出さない
 const owmApiKey = str(env.SIGNAGE_OWM_API_KEY, ""); // 空なら天気パネルを出さない
 
@@ -99,7 +131,8 @@ let config = {
 				logPath: str(env.SIGNAGE_LOG_PATH, null),
 				slideInterval: num(env.SIGNAGE_SLIDE_INTERVAL, 60000), // 1枚60秒（feedback 2026-07-18）
 				fadeSpeed: num(env.SIGNAGE_FADE_SPEED, 1200),
-				shuffle: bool(env.SIGNAGE_SHUFFLE, true),
+				orderMode, // sequential = 自然順に出す / shuffle = 一巡内で重複しない順に出す
+				repeatMode, // none = 末尾で終了 / all = 先頭へ戻る / one = 1枚に留まる
 			},
 		},
 		// 上部バー(top_bar)に 時計・月カレ・天気 を横並び。下部バー(bottom_bar)は予定のみ。
