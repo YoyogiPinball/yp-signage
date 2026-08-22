@@ -232,6 +232,18 @@ Module.register("yp-slideshow", {
 				// body.topbar-on ルールが付いている間だけ板が出る。
 				document.body.classList.toggle("topbar-on");
 				break;
+			case "plate":
+				// 時計の板の濃さ（%）を実行中に差し替える。custom.css の :root に置いた
+				// --clock-plate-alpha を上書きするだけなので、再起動もフェードも起きない。
+				// 値の検証は node_helper 側で済ませてある（0〜100 の整数か "reset"）。
+				// reset で上書きを外し、custom.css の既定値へ戻す。
+				// ここでの上書きはメモリ上だけなので、MagicMirror を再起動すると既定に戻る。
+				if (value === "reset") {
+					document.documentElement.style.removeProperty("--clock-plate-alpha");
+				} else {
+					document.documentElement.style.setProperty("--clock-plate-alpha", String(Number(value) / 100));
+				}
+				break;
 		}
 	},
 

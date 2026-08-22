@@ -17,11 +17,24 @@
 
 ```bash
 bash ~/run/mm-ctl.sh {pause|resume|toggle|next|prev|topbar}
+bash ~/run/mm-ctl.sh plate {0-100|reset}
 ```
 
 `pause` / `resume` / `toggle` は自動送りの一時停止と再開、`next` / `prev` は手動の前後送り、
 `topbar` は上バーの半透明プレートの表示切替。手元からは
 `ssh <表示機> 'bash ~/run/mm-ctl.sh next'` のように叩ける。
+
+`mm-ctl.sh plate` は時計の背景プレートの濃さを、画面を見ながら変えるためのもの。
+
+```bash
+bash ~/run/mm-ctl.sh plate 45     # 45% の濃さにする
+bash ~/run/mm-ctl.sh plate reset  # custom.css の既定へ戻す
+```
+
+MagicMirror を再起動せずその場で反映される代わりに、再起動すると既定へ戻る。
+気に入った濃さが決まったら、配布元の `magicmirror/css/custom.css` にある
+`--clock-plate-alpha`（`:root` に置いた 0〜1 の値）へ書き戻して `./deploy.sh` する。
+`plate 45` を実行したときに、書き戻す値がメッセージに出る。
 
 `mm-ctl.sh blink` は、配信開始時の点滅を待たずに手で起こす確認用。配信予定バーの先頭
 （左上の時刻付きの枠）を本番と同じ60秒だけ光らせる。本番の発火予定は消さないので、

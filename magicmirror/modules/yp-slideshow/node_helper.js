@@ -42,9 +42,16 @@ module.exports = NodeHelper.create({
 		const ALLOWED = new Set(["pause", "resume", "toggle", "next", "prev", "restart", "topbar"]);
 		// 値を取る操作は URL を2段にする（/control/order/shuffle）。1段のまま
 		// order-shuffle のような名前を並べると、増えるたびに一覧が伸びて綴りもゆれる。
+		// 値は Set で並べるのが基本。plate だけは 0〜100 の整数と広いので、
+		// 並べる代わりに「通るかどうか」を返す関数と、弾いたときに出す説明文を持つ。
 		const VALUES = {
 			order: new Set(["sequential", "shuffle"]),
 			repeat: new Set(["none", "all", "one"]),
+			// 時計の板の濃さ(%)。reset で custom.css の既定へ戻す。
+			plate: {
+				test: (v) => v === "reset" || (/^[0-9]{1,3}$/.test(v) && Number(v) <= 100),
+				hint: "0〜100 の整数（%）か reset",
+			},
 		};
 		// ここで返す ok は「要求を受け取った」という意味で、画面に反映し終えたことまでは
 		// 保証しない（実際に適用するのはフロント側）。反映の確認まで返すには、フロントから
@@ -63,8 +70,10 @@ module.exports = NodeHelper.create({
 			if (!allowed) {
 				return res.status(400).json({ ok: false, error: `unknown cmd: ${cmd}` });
 			}
-			if (!allowed.has(value)) {
-				return res.status(400).json({ ok: false, error: `unknown value for ${cmd}: ${value}（使えるのは ${[...allowed].join(" / ")}）` });
+			const ok = allowed instanceof Set ? allowed.has(value) : allowed.test(value);
+			if (!ok) {
+				const hint = allowed instanceof Set ? [...allowed].join(" / ") : allowed.hint;
+				return res.status(400).json({ ok: false, error: `unknown value for ${cmd}: ${value}（使えるのは ${hint}）` });
 			}
 			this.sendSocketNotification("YP_SLIDESHOW_CONTROL", { cmd, value });
 			res.json({ ok: true, cmd, value });
