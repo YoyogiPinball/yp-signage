@@ -3,22 +3,24 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-	<meta name="theme-color" content="#090b0e">
+	<meta name="theme-color" content="#f4f1ea">
 	<title>サイネージ操作盤</title>
 	<style>
 		:root {
-			color-scheme: dark;
-			--bg: #090b0e;
-			--panel: #12161b;
-			--panel-raised: #181e25;
-			--line: #303842;
-			--text: #f4f1e8;
-			--muted: #aab2bc;
-			--accent: #edc65a;
-			--on: #53d18b;
-			--off: #ff6b62;
-			--danger-bg: #2a1719;
-			--radius: 16px;
+			color-scheme: light;
+			--paper: #f4f1ea;
+			--card: #ffffff;
+			--sunk: #faf8f3;
+			--ink: #16181c;
+			--ink-soft: #5a6069;
+			--rule: #e3ddd1;
+			--rule-strong: #cfc7b6;
+			--on: #1d6b4f;
+			--on-wash: #e9f1ec;
+			--off: #b23a2b;
+			--off-wash: #f8eae7;
+			--radius: 14px;
+			--mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
 		}
 
 		* { box-sizing: border-box; }
@@ -26,67 +28,95 @@
 		body {
 			margin: 0;
 			min-width: 320px;
+			/* 罫紙のような横罫を薄く敷く。単色の面より、操作盤としての「台紙」感が出る。 */
 			background:
-				linear-gradient(rgba(255, 255, 255, .022) 1px, transparent 1px),
-				var(--bg);
-			background-size: 100% 32px;
-			color: var(--text);
+				repeating-linear-gradient(
+					to bottom,
+					transparent 0 31px,
+					rgba(22, 24, 28, .028) 31px 32px
+				),
+				var(--paper);
+			color: var(--ink);
 			font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
 			font-size: 16px;
 			line-height: 1.55;
+			-webkit-text-size-adjust: 100%;
 		}
 
 		main {
-			width: min(100% - 28px, 760px);
+			width: min(100% - 24px, 620px);
 			margin: 0 auto;
-			padding: max(24px, env(safe-area-inset-top)) 0 max(48px, env(safe-area-inset-bottom));
+			padding: max(22px, env(safe-area-inset-top)) 0 max(40px, env(safe-area-inset-bottom));
 		}
 
-		header { margin-bottom: 18px; }
+		.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+		svg.icon {
+			width: 20px;
+			height: 20px;
+			flex: none;
+			stroke: currentColor;
+			stroke-width: 1.9;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			fill: none;
+		}
+
+		/* ---- 見出し ---- */
+
+		header {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 12px;
+			padding-bottom: 12px;
+			margin-bottom: 16px;
+			border-bottom: 2px solid var(--ink);
+		}
 
 		.eyebrow {
-			margin: 0 0 4px;
-			color: var(--accent);
-			font: 700 .72rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
-			letter-spacing: .16em;
+			margin: 0 0 2px;
+			color: var(--off);
+			font: 700 .68rem/1.2 var(--mono);
+			letter-spacing: .18em;
 			text-transform: uppercase;
 		}
 
 		h1 {
 			margin: 0;
-			font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-			font-size: clamp(1.8rem, 8vw, 2.8rem);
+			font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
+			font-size: clamp(1.6rem, 7.5vw, 2.3rem);
 			font-weight: 700;
-			letter-spacing: .03em;
+			letter-spacing: .04em;
+			line-height: 1.15;
 		}
 
-		h2 {
-			margin: 0 0 14px;
-			font-size: 1.05rem;
+		#timezone {
+			flex: none;
+			padding-bottom: 3px;
+			color: var(--ink-soft);
+			font: .7rem/1 var(--mono);
 			letter-spacing: .04em;
 		}
 
-		.status-card,
-		.section {
-			border: 1px solid var(--line);
-			border-radius: var(--radius);
-			background: rgba(18, 22, 27, .96);
-			box-shadow: 0 16px 40px rgba(0, 0, 0, .24);
-		}
+		/* ---- 状態カード ---- */
 
 		.status-card {
 			position: relative;
 			overflow: hidden;
-			padding: 20px;
-			margin-bottom: 14px;
+			padding: 16px 18px 14px 22px;
+			border: 1px solid var(--rule);
+			border-radius: var(--radius);
+			background: var(--card);
+			box-shadow: 0 1px 0 var(--rule-strong), 0 10px 24px -18px rgba(22, 24, 28, .5);
 		}
 
 		.status-card::before {
 			content: "";
 			position: absolute;
 			inset: 0 auto 0 0;
-			width: 5px;
-			background: var(--muted);
+			width: 6px;
+			background: var(--rule-strong);
 		}
 
 		.status-card.on::before { background: var(--on); }
@@ -95,257 +125,503 @@
 		.status-head {
 			display: flex;
 			align-items: center;
-			gap: 12px;
+			gap: 10px;
 		}
 
 		.status-dot {
-			width: 13px;
-			height: 13px;
+			width: 12px;
+			height: 12px;
 			border-radius: 50%;
-			background: var(--muted);
-			box-shadow: 0 0 0 5px rgba(170, 178, 188, .12);
+			background: var(--rule-strong);
+			box-shadow: 0 0 0 4px rgba(207, 199, 182, .35);
 		}
 
-		.on .status-dot { background: var(--on); box-shadow: 0 0 0 5px rgba(83, 209, 139, .14); }
-		.off .status-dot { background: var(--off); box-shadow: 0 0 0 5px rgba(255, 107, 98, .14); }
+		.on .status-dot { background: var(--on); box-shadow: 0 0 0 4px rgba(29, 107, 79, .16); }
+		.off .status-dot { background: var(--off); box-shadow: 0 0 0 4px rgba(178, 58, 43, .16); }
 
 		#display-state {
-			font-size: 1.55rem;
+			font-size: 1.5rem;
 			font-weight: 800;
+			letter-spacing: .06em;
+		}
+
+		#mode-badge {
+			margin-left: auto;
+			padding: 3px 9px;
+			border: 1px solid var(--rule-strong);
+			border-radius: 999px;
+			background: var(--sunk);
+			color: var(--ink-soft);
+			font-size: .74rem;
+			font-weight: 700;
 			letter-spacing: .04em;
+			white-space: nowrap;
 		}
 
-		.status-detail {
-			margin: 10px 0 0 25px;
-			color: var(--muted);
-			font-size: .91rem;
+		#mode-badge.manual {
+			border-color: var(--off);
+			background: var(--off-wash);
+			color: var(--off);
 		}
 
-		.status-detail span { display: block; }
+		#mode-detail {
+			margin: 8px 0 0 22px;
+			color: var(--ink-soft);
+			font-size: .88rem;
+		}
+
+		#hardware-state {
+			margin: 10px 0 0 22px;
+			padding-top: 8px;
+			border-top: 1px dashed var(--rule);
+			color: var(--ink-soft);
+			font: .7rem/1.4 var(--mono);
+			letter-spacing: .02em;
+		}
+
+		/* ---- 通知 ---- */
 
 		.notice {
 			display: none;
-			margin: 0 0 14px;
-			padding: 12px 14px;
-			border: 1px solid #745a25;
-			border-radius: 12px;
-			background: #251e10;
-			color: #f5d982;
-			font-size: .9rem;
+			margin: 12px 0 0;
+			padding: 11px 13px;
+			border: 1px solid var(--rule-strong);
+			border-left: 4px solid var(--ink);
+			border-radius: 10px;
+			background: var(--card);
+			font-size: .87rem;
 		}
 
 		.notice.show { display: block; }
-		.notice.error { border-color: #793a3f; background: var(--danger-bg); color: #ffaaa4; }
 
-		.section {
-			padding: 18px;
-			margin-top: 14px;
+		.notice.error {
+			border-color: #e0b4ab;
+			border-left-color: var(--off);
+			background: var(--off-wash);
+			color: #7d2013;
+		}
+
+		/* ---- タブ ---- */
+
+		.tabs {
+			display: flex;
+			gap: 6px;
+			margin: 18px 0 0;
+			padding: 5px;
+			border: 1px solid var(--rule);
+			border-radius: 12px;
+			background: rgba(255, 255, 255, .7);
+		}
+
+		.tab {
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 7px;
+			min-height: 46px;
+			padding: 0 10px;
+			border: 1px solid transparent;
+			border-radius: 9px;
+			background: none;
+			color: var(--ink-soft);
+			font: inherit;
+			font-weight: 700;
+			letter-spacing: .04em;
+			cursor: pointer;
+			transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+		}
+
+		.tab:hover { background: var(--sunk); color: var(--ink); }
+
+		.tab[aria-selected="true"] {
+			border-color: var(--ink);
+			background: var(--ink);
+			color: var(--paper);
+		}
+
+		.tab .dirty-dot {
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: var(--off);
+			opacity: 0;
+		}
+
+		.tab.dirty .dirty-dot { opacity: 1; }
+
+		[role="tabpanel"] { padding-top: 4px; }
+		[role="tabpanel"][hidden] { display: none; }
+
+		/* ---- 操作パネル ---- */
+
+		.group { margin-top: 16px; }
+
+		.group-head {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			margin: 0 0 9px;
+			color: var(--ink-soft);
+			font-size: .72rem;
+			font-weight: 700;
+			letter-spacing: .16em;
+		}
+
+		.group-head::after {
+			content: "";
+			flex: 1;
+			height: 1px;
+			background: var(--rule-strong);
 		}
 
 		.control-grid {
 			display: grid;
 			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 10px;
+			gap: 9px;
 		}
 
-		button,
-		input {
-			font: inherit;
-		}
+		button, input { font: inherit; }
 
 		button {
-			min-height: 52px;
-			border: 1px solid #46515e;
-			border-radius: 12px;
-			background: var(--panel-raised);
-			color: var(--text);
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			min-height: 54px;
+			padding: 10px 12px;
+			border: 1px solid var(--rule-strong);
+			border-radius: 11px;
+			background: var(--card);
+			color: var(--ink);
 			font-weight: 700;
+			letter-spacing: .02em;
 			cursor: pointer;
-			transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+			box-shadow: 0 1px 0 var(--rule-strong);
+			transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
 			touch-action: manipulation;
 		}
 
-		button:hover { background: #222a33; border-color: #697787; }
-		button:active { background: #29333e; }
-		button:focus-visible,
-		input:focus-visible { outline: 3px solid rgba(237, 198, 90, .55); outline-offset: 2px; }
-		button:disabled { cursor: wait; opacity: .55; }
+		button:hover { background: var(--sunk); border-color: var(--ink-soft); }
+		button:active { box-shadow: none; transform: translateY(1px); }
+		button:disabled { cursor: wait; opacity: .5; }
 
-		button.primary { border-color: #947b37; background: #3a321c; color: #ffe394; }
-		button.danger { border-color: #7a3c3f; background: #321b1d; color: #ffb2ac; }
+		button:focus-visible,
+		input:focus-visible,
+		summary:focus-visible {
+			outline: 3px solid rgba(178, 58, 43, .45);
+			outline-offset: 2px;
+		}
+
+		/* 点灯は「入れる」操作なので墨ベタ、消灯は朱の輪郭。並べたとき役割が一目で割れる。 */
+		button.solid {
+			border-color: var(--ink);
+			background: var(--ink);
+			color: var(--paper);
+			box-shadow: 0 1px 0 #000;
+		}
+
+		button.solid:hover { background: #2b2f36; border-color: #2b2f36; }
+
+		button.danger {
+			border-color: var(--off);
+			background: var(--off-wash);
+			color: #8f2a1d;
+		}
+
+		button.danger:hover { background: #f2ded9; border-color: #8f2a1d; }
+
 		button.wide { grid-column: 1 / -1; }
 
-		.schedule-toolbar {
-			display: flex;
-			align-items: baseline;
-			justify-content: space-between;
-			gap: 10px;
-			margin-bottom: 14px;
+		button.ghost {
+			border-style: dashed;
+			background: none;
+			color: var(--ink-soft);
+			box-shadow: none;
 		}
 
-		.schedule-toolbar h2 { margin: 0; }
-		.schedule-toolbar small { color: var(--muted); }
+		button.ghost:hover { background: var(--sunk); color: var(--ink); }
+
+		/* 上書き中だけ「自動に戻す」を目立たせる。ふだんは押す必要のないボタン。 */
+		button.ghost.suggested {
+			border-style: solid;
+			border-color: var(--on);
+			background: var(--on-wash);
+			color: #14563e;
+		}
+
+		/* ---- 予定パネル ---- */
+
+		.schedule-hint {
+			margin: 16px 0 10px;
+			color: var(--ink-soft);
+			font-size: .82rem;
+		}
 
 		.day-card {
-			padding: 15px 0;
-			border-top: 1px solid var(--line);
+			border: 1px solid var(--rule);
+			border-radius: 11px;
+			background: var(--card);
+			margin-bottom: 8px;
 		}
 
-		.day-card:first-child { border-top: 0; padding-top: 0; }
-		.day-title { margin: 0 0 10px; font-size: 1rem; }
+		.day-card[open] { border-color: var(--rule-strong); box-shadow: 0 1px 0 var(--rule-strong); }
+
+		.day-head {
+			display: grid;
+			grid-template-columns: 18px minmax(0, 1fr);
+			align-items: center;
+			gap: 2px 9px;
+			padding: 12px 14px;
+			list-style: none;
+			cursor: pointer;
+			border-radius: 10px;
+		}
+
+		.day-head::-webkit-details-marker { display: none; }
+		.day-head:hover { background: var(--sunk); }
+
+		.chev { width: 18px; height: 18px; color: var(--ink-soft); transition: transform .18s ease; }
+		.day-card[open] .chev { transform: rotate(180deg); }
+
+		.day-name { font-weight: 700; letter-spacing: .04em; }
+
+		.day-badge {
+			margin-left: 7px;
+			padding: 1px 7px;
+			border-radius: 999px;
+			background: var(--ink);
+			color: var(--paper);
+			font-size: .66rem;
+			font-weight: 700;
+			letter-spacing: .06em;
+			vertical-align: 2px;
+		}
+
+		.day-summary {
+			grid-column: 2;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0 14px;
+			color: var(--ink-soft);
+			font: .76rem/1.5 var(--mono);
+			letter-spacing: .01em;
+		}
+
+		/* 1本の時間帯の途中では折らない。「18:00 – 翌」で改行されると読めなくなる。 */
+		.day-summary span { white-space: nowrap; }
+
+		.day-summary.empty { color: var(--off); }
+
+		.day-body { padding: 0 14px 13px; border-top: 1px dashed var(--rule); margin-top: 2px; padding-top: 12px; }
 
 		.range-row {
 			display: grid;
-			grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) auto;
+			grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) auto;
 			/* end で揃えると、終了側だけ「翌日」のぶん背が高いせいで開始の入力欄が
 			 * 下へずれる。見出しの高さは両方同じなので、上で揃えたほうが行として読める。 */
 			align-items: start;
 			gap: 8px;
-			margin-bottom: 10px;
+			margin-bottom: 8px;
 			padding: 10px;
-			border: 1px solid transparent;
-			border-radius: 12px;
-			background: #0d1014;
+			border: 1px solid var(--rule);
+			border-radius: 10px;
+			background: var(--sunk);
 		}
 
-		.range-row.invalid { border-color: var(--off); background: #211315; }
+		.range-row.invalid { border-color: var(--off); background: var(--off-wash); }
 
 		.field-label {
 			display: block;
-			margin: 0 0 5px;
-			color: var(--muted);
-			font-size: .72rem;
+			margin: 0 0 4px;
+			color: var(--ink-soft);
+			font-size: .68rem;
 			font-weight: 700;
-			letter-spacing: .08em;
+			letter-spacing: .1em;
 		}
 
 		input[type="time"] {
 			width: 100%;
 			min-height: 46px;
-			border: 1px solid #46515e;
-			border-radius: 9px;
-			background: #171c22;
-			color: var(--text);
 			padding: 8px;
+			border: 1px solid var(--rule-strong);
+			border-radius: 8px;
+			background: var(--card);
+			color: var(--ink);
+			font-family: var(--mono);
 		}
 
-		.arrow { align-self: center; color: var(--muted); text-align: center; }
+		.arrow { align-self: center; color: var(--ink-soft); text-align: center; padding-top: 20px; }
 
 		.next-day {
 			display: flex;
 			align-items: center;
-			gap: 7px;
-			min-height: 32px;
+			gap: 6px;
+			min-height: 30px;
 			margin-top: 5px;
-			color: var(--muted);
-			font-size: .8rem;
+			color: var(--ink-soft);
+			font-size: .78rem;
 			cursor: pointer;
 		}
 
-		.next-day input { width: 20px; height: 20px; accent-color: var(--accent); }
+		.next-day input { width: 19px; height: 19px; accent-color: var(--off); }
 
 		.delete-row {
 			width: 46px;
 			min-height: 46px;
+			margin-top: 20px;
 			padding: 0;
-			border-color: #63383c;
-			color: #ffaaa4;
-			font-size: .78rem;
+			border-color: #e0b4ab;
+			background: var(--card);
+			color: var(--off);
 		}
 
-		.day-actions {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 8px;
-		}
+		.delete-row:hover { background: var(--off-wash); border-color: var(--off); }
+		/* 46px 角のときは入らないので隠し、横幅いっぱいに伸びる狭い画面だけ出す。 */
+		.delete-label { display: none; font-size: .8rem; }
+
+		.day-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 
 		.day-actions button {
-			min-height: 44px;
-			padding: 8px;
-			font-size: .78rem;
+			min-height: 42px;
+			padding: 6px 8px;
+			font-size: .76rem;
+			font-weight: 700;
 		}
 
-		.day-actions .add-row { grid-column: 1 / -1; border-style: dashed; }
+		.day-actions .add-row { grid-column: 1 / -1; }
+		.day-actions svg.icon { width: 16px; height: 16px; }
 
 		.save-bar {
 			position: sticky;
 			bottom: max(10px, env(safe-area-inset-bottom));
 			z-index: 2;
-			margin-top: 16px;
-			padding: 9px;
-			border: 1px solid var(--line);
-			border-radius: 14px;
-			background: rgba(9, 11, 14, .92);
+			margin-top: 14px;
+			padding: 8px;
+			border: 1px solid var(--rule-strong);
+			border-radius: 13px;
+			background: rgba(244, 241, 234, .92);
 			backdrop-filter: blur(10px);
+			-webkit-backdrop-filter: blur(10px);
 		}
 
 		#save-schedule { width: 100%; }
 		#schedule-errors { margin-top: 10px; white-space: pre-line; }
 
-		@media (max-width: 480px) {
-			main { width: min(100% - 20px, 760px); }
-			.section { padding: 15px; }
+		/* ---- 読み込み時の段差 ---- */
+
+		main > * { animation: rise .42s cubic-bezier(.2, .7, .3, 1) both; }
+		main > *:nth-child(2) { animation-delay: .05s; }
+		main > *:nth-child(3) { animation-delay: .1s; }
+		main > *:nth-child(4) { animation-delay: .14s; }
+
+		@keyframes rise {
+			from { opacity: 0; transform: translateY(8px); }
+			to { opacity: 1; transform: none; }
+		}
+
+		@media (max-width: 430px) {
+			main { width: min(100% - 18px, 620px); }
 			.range-row { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); }
-			.delete-row { grid-column: 1 / -1; width: 100%; min-height: 40px; }
+			.delete-row { grid-column: 1 / -1; width: 100%; min-height: 42px; margin-top: 0; }
+			.delete-label { display: inline; }
+			.day-actions { grid-template-columns: 1fr; }
 		}
 
 		@media (prefers-reduced-motion: reduce) {
-			* { scroll-behavior: auto !important; transition: none !important; }
+			*, *::before, *::after {
+				scroll-behavior: auto !important;
+				transition: none !important;
+				animation: none !important;
+			}
 		}
 	</style>
 </head>
 <body>
+	<svg class="sprite" aria-hidden="true" focusable="false"><defs>
+		<symbol viewBox="0 0 24 24" id="i-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-sunrise"><path d="M12 2v8M4.93 10.93l1.41-1.41M2 18h2M20 18h2M19.07 10.93l-1.41-1.41M22 22H2M8 6l4-4 4 4M16 18a4 4 0 0 0-8 0"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-auto"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-play"><path d="M6 4l14 8-14 8Z"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-prev"><path d="M15 18l-6-6 6-6"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-next"><path d="M9 18l6-6-6-6"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-plus"><path d="M5 12h14M12 5v14"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-trash"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-copy"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-check"><path d="M20 6L9 17l-5-5"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-sliders"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-calendar"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+		<symbol viewBox="0 0 24 24" id="i-chevron-down"><path d="M6 9l6 6 6-6"/></symbol>
+	</defs></svg>
+
 	<main>
 		<header>
-			<p class="eyebrow">YP Signage / Remote</p>
-			<h1>サイネージ操作盤</h1>
+			<div>
+				<p class="eyebrow">YP Signage / Remote</p>
+				<h1>サイネージ操作盤</h1>
+			</div>
+			<small id="timezone"></small>
 		</header>
 
 		<section id="status-card" class="status-card" aria-live="polite">
 			<div class="status-head">
 				<span class="status-dot" aria-hidden="true"></span>
 				<strong id="display-state">確認中</strong>
+				<span id="mode-badge">取得中</span>
 			</div>
-			<p class="status-detail">
-				<span id="operation-mode">状態を取得しています</span>
-				<span id="hardware-state"></span>
-			</p>
+			<p id="mode-detail">状態を取得しています</p>
+			<p id="hardware-state"></p>
 		</section>
 
-		<p id="auth-notice" class="notice">本人限定の設定がまだ有効ではありません。</p>
-		<p id="message" class="notice" role="status"></p>
+		<div>
+			<p id="auth-notice" class="notice error">本人限定の設定がまだ有効ではありません。</p>
+			<p id="message" class="notice" role="status"></p>
+		</div>
 
-		<section class="section" aria-labelledby="display-controls-title">
-			<h2 id="display-controls-title">画面</h2>
-			<div class="control-grid">
-				<button class="primary" data-action="display-on">画面をつける</button>
-				<button class="danger" data-action="display-off">画面を消す</button>
-				<button class="danger wide" data-action="off-morning">明日の朝7時まで消す</button>
-				<button class="wide" data-action="automatic">自動に戻す</button>
+		<div>
+			<div class="tabs" role="tablist" aria-label="操作盤の表示切り替え">
+				<button class="tab" type="button" role="tab" id="tab-control" aria-controls="panel-control" aria-selected="true">
+					<svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg>操作
+				</button>
+				<button class="tab" type="button" role="tab" id="tab-schedule" aria-controls="panel-schedule" aria-selected="false" tabindex="-1">
+					<svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>予定
+					<span class="dirty-dot" aria-hidden="true"></span>
+				</button>
 			</div>
-		</section>
 
-		<section class="section" aria-labelledby="slideshow-controls-title">
-			<h2 id="slideshow-controls-title">スライドショー</h2>
-			<div class="control-grid">
-				<button data-slideshow="pause">一時停止</button>
-				<button data-slideshow="resume">再開</button>
-				<button data-slideshow="prev">前へ</button>
-				<button data-slideshow="next">次へ</button>
-			</div>
-		</section>
+			<section id="panel-control" role="tabpanel" aria-labelledby="tab-control" tabindex="0">
+				<div class="group">
+					<h2 class="group-head">画面</h2>
+					<div class="control-grid">
+						<button class="solid" data-action="display-on"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>つける</button>
+						<button class="danger" data-action="display-off"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>消す</button>
+						<button class="danger wide" data-action="off-morning"><svg class="icon" aria-hidden="true"><use href="#i-sunrise"/></svg>明日の朝7時まで消す</button>
+						<button class="ghost wide" data-action="automatic"><svg class="icon" aria-hidden="true"><use href="#i-auto"/></svg>自動に戻す</button>
+					</div>
+				</div>
 
-		<section class="section" aria-labelledby="schedule-title">
-			<div class="schedule-toolbar">
-				<h2 id="schedule-title">点灯予定</h2>
-				<small id="timezone"></small>
-			</div>
-			<div id="schedule"></div>
-			<p id="schedule-errors" class="notice error" role="alert"></p>
-			<div class="save-bar">
-				<button id="save-schedule" class="primary">予定を保存</button>
-			</div>
-		</section>
+				<div class="group">
+					<h2 class="group-head">スライドショー</h2>
+					<div class="control-grid">
+						<button data-slideshow="prev"><svg class="icon" aria-hidden="true"><use href="#i-prev"/></svg>前へ</button>
+						<button data-slideshow="next">次へ<svg class="icon" aria-hidden="true"><use href="#i-next"/></svg></button>
+						<button data-slideshow="pause"><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg>一時停止</button>
+						<button data-slideshow="resume"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>再開</button>
+					</div>
+				</div>
+			</section>
+
+			<section id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" tabindex="0" hidden>
+				<p class="schedule-hint">曜日をタップすると時間帯を編集できます。保存するまで画面には反映されません。</p>
+				<div id="schedule"></div>
+				<p id="schedule-errors" class="notice error" role="alert"></p>
+				<div class="save-bar">
+					<button id="save-schedule" class="solid"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>予定を保存</button>
+				</div>
+			</section>
+		</div>
 	</main>
 
 	<script>
@@ -355,14 +631,52 @@
 		const scheduleRoot = document.querySelector("#schedule");
 		const message = document.querySelector("#message");
 		const scheduleErrors = document.querySelector("#schedule-errors");
+		const scheduleTab = document.querySelector("#tab-schedule");
 		let scheduleDirty = false;
 		let renderedSchedule = "";
+
+		function markDirty() {
+			scheduleDirty = true;
+			scheduleTab.classList.add("dirty");
+		}
+
+		function clearDirty() {
+			scheduleDirty = false;
+			scheduleTab.classList.remove("dirty");
+		}
 
 		function showNotice(element, text, isError = false) {
 			element.textContent = text;
 			element.classList.toggle("error", isError);
 			element.classList.toggle("show", Boolean(text));
 		}
+
+		/* ---- タブ ---- */
+
+		const tabs = [...document.querySelectorAll('[role="tab"]')];
+
+		function selectTab(tab) {
+			tabs.forEach((item) => {
+				const selected = item === tab;
+				item.setAttribute("aria-selected", String(selected));
+				item.tabIndex = selected ? 0 : -1;
+				document.querySelector(`#${item.getAttribute("aria-controls")}`).hidden = !selected;
+			});
+		}
+
+		tabs.forEach((tab, index) => {
+			tab.addEventListener("click", () => selectTab(tab));
+			tab.addEventListener("keydown", (event) => {
+				const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+				if (!step) return;
+				event.preventDefault();
+				const next = tabs[(index + step + tabs.length) % tabs.length];
+				selectTab(next);
+				next.focus();
+			});
+		});
+
+		/* ---- 状態 ---- */
 
 		async function callApi(url, options = {}) {
 			const response = await fetch(url, {
@@ -398,11 +712,19 @@
 			card.classList.toggle("on", data.display === "on");
 			card.classList.toggle("off", data.display === "off");
 			document.querySelector("#display-state").textContent = data.display === "on" ? "点灯中" : "消灯中";
-			const mode = data.reason === "override"
-				? `手動で上書き中・${formatDateTime(data.override && data.override.until)}まで`
-				: `自動運転・次の再判定 ${formatDateTime(data.nextEvaluationAt)}`;
-			document.querySelector("#operation-mode").textContent = mode;
-			document.querySelector("#hardware-state").textContent = `DPMS ${data.dpms ?? "不明"} / PowerSaveMode ${data.powerSaveMode ?? "不明"}`;
+
+			const manual = data.reason === "override";
+			const badge = document.querySelector("#mode-badge");
+			badge.textContent = manual ? "手動で上書き中" : "自動運転";
+			badge.classList.toggle("manual", manual);
+			document.querySelector("#mode-detail").textContent = manual
+				? `${formatDateTime(data.override && data.override.until)}まで、この状態を保ちます`
+				: `次の切り替え ${formatDateTime(data.nextEvaluationAt)}`;
+			// 上書き中だけ「自動に戻す」を目立たせる。ふだんは押す用のないボタン。
+			document.querySelector('[data-action="automatic"]').classList.toggle("suggested", manual);
+
+			document.querySelector("#hardware-state").textContent =
+				`DPMS ${data.dpms ?? "不明"} / PowerSaveMode ${data.powerSaveMode ?? "不明"}`;
 			document.querySelector("#timezone").textContent = data.timeZone;
 			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired);
 
@@ -410,6 +732,8 @@
 			// 入力途中を5秒更新で消さない。未編集で予定自体が変わったときだけ描き直す。
 			if (!scheduleDirty && serialized !== renderedSchedule) renderSchedule(data.schedule);
 		}
+
+		/* ---- 予定 ---- */
 
 		function splitTime(value) {
 			const match = /^(\d{2}):(\d{2})$/.exec(value);
@@ -421,12 +745,30 @@
 			};
 		}
 
+		function dayCard(day) {
+			return document.querySelector(`.day-card[data-day="${day}"]`);
+		}
+
 		function rawRows(day) {
-			return [...document.querySelector(`.day-card[data-day="${day}"] .ranges`).children].map((row) => ({
+			return [...dayCard(day).querySelector(".ranges").children].map((row) => ({
 				from: row.querySelector(".from-time").value,
 				to: row.querySelector(".to-time").value,
 				nextDay: row.querySelector(".next-day-input").checked,
 			}));
+		}
+
+		// 折りたたんだままでも中身が読めるように、見出しへ時間帯を並べておく。
+		function updateDaySummary(day) {
+			const target = dayCard(day).querySelector(".day-summary");
+			const rows = rawRows(day)
+				.filter((row) => row.from && row.to)
+				.map((row) => `${row.from} – ${row.nextDay ? "翌" : ""}${row.to}`);
+			target.replaceChildren(...(rows.length > 0 ? rows : ["終日消灯"]).map((text) => {
+				const chip = document.createElement("span");
+				chip.textContent = text;
+				return chip;
+			}));
+			target.classList.toggle("empty", rows.length === 0);
 		}
 
 		function addRange(day, range = { from: "07:00", to: "08:00", nextDay: false }) {
@@ -434,54 +776,72 @@
 			row.className = "range-row";
 			row.innerHTML = `
 				<label><span class="field-label">開始</span><input class="from-time" type="time" step="60" required></label>
-				<span class="arrow" aria-hidden="true">—</span>
+				<span class="arrow" aria-hidden="true">–</span>
 				<label><span class="field-label">終了</span><input class="to-time" type="time" step="60" required><span class="next-day"><input class="next-day-input" type="checkbox">翌日</span></label>
-				<button class="delete-row" type="button" aria-label="この時間帯を削除">削除</button>`;
+				<button class="delete-row" type="button" aria-label="この時間帯を削除"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="delete-label">削除</span></button>`;
 			row.querySelector(".from-time").value = range.from;
 			row.querySelector(".to-time").value = range.to;
 			row.querySelector(".next-day-input").checked = Boolean(range.nextDay);
 			row.querySelectorAll("input").forEach((input) => input.addEventListener("input", () => {
-				scheduleDirty = true;
+				markDirty();
 				row.classList.remove("invalid");
+				updateDaySummary(day);
 			}));
 			row.querySelector(".delete-row").addEventListener("click", () => {
 				row.remove();
-				scheduleDirty = true;
+				markDirty();
+				updateDaySummary(day);
 			});
-			document.querySelector(`.day-card[data-day="${day}"] .ranges`).append(row);
+			dayCard(day).querySelector(".ranges").append(row);
 		}
 
 		function replaceDay(day, rows) {
-			const ranges = document.querySelector(`.day-card[data-day="${day}"] .ranges`);
+			const ranges = dayCard(day).querySelector(".ranges");
 			ranges.replaceChildren();
 			rows.forEach((row) => addRange(day, row));
+			updateDaySummary(day);
 		}
 
 		function copyDay(sourceDay, targets) {
 			const rows = rawRows(sourceDay);
 			targets.forEach((day) => replaceDay(day, rows));
-			scheduleDirty = true;
+			markDirty();
 			showNotice(message, `${DAYS[sourceDay]}の内容をコピーしました。保存するまで反映されません。`);
 		}
 
 		function renderSchedule(schedule) {
+			// 5秒ごとの再描画で開いていた曜日が閉じないよう、開閉だけ引き継ぐ。
+			const opened = new Set(
+				[...scheduleRoot.querySelectorAll(".day-card[open]")].map((card) => Number(card.dataset.day)),
+			);
+			const today = new Date().getDay();
+			if (opened.size === 0 && renderedSchedule === "") opened.add(today);
+
 			scheduleRoot.replaceChildren();
 			for (let day = 0; day < 7; day += 1) {
-				const card = document.createElement("section");
+				const card = document.createElement("details");
 				card.className = "day-card";
 				card.dataset.day = day;
+				card.open = opened.has(day);
 				card.innerHTML = `
-					<h3 class="day-title">${DAYS[day]}</h3>
-					<div class="ranges"></div>
-					<div class="day-actions">
-						<button type="button" class="add-row">行を追加</button>
-						<button type="button" class="copy-weekdays">平日（月〜金）にこの内容をコピー</button>
-						<button type="button" class="copy-weekend">土日にこの内容をコピー</button>
+					<summary class="day-head">
+						<svg class="icon chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+						<span class="day-name">${DAYS[day]}${day === today ? '<span class="day-badge">今日</span>' : ""}</span>
+						<span class="day-summary"></span>
+					</summary>
+					<div class="day-body">
+						<div class="ranges"></div>
+						<div class="day-actions">
+							<button type="button" class="add-row ghost"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>時間帯を追加</button>
+							<button type="button" class="copy-weekdays"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>平日へコピー</button>
+							<button type="button" class="copy-weekend"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>土日へコピー</button>
+						</div>
 					</div>`;
 				scheduleRoot.append(card);
 				card.querySelector(".add-row").addEventListener("click", () => {
 					addRange(day);
-					scheduleDirty = true;
+					markDirty();
+					updateDaySummary(day);
 				});
 				card.querySelector(".copy-weekdays").addEventListener("click", () => copyDay(day, [1, 2, 3, 4, 5]));
 				card.querySelector(".copy-weekend").addEventListener("click", () => copyDay(day, [0, 6]));
@@ -489,9 +849,10 @@
 					const to = splitTime(range.to);
 					addRange(day, { from: range.from, to: to.time, nextDay: to.nextDay });
 				}
+				updateDaySummary(day);
 			}
 			renderedSchedule = JSON.stringify(schedule);
-			scheduleDirty = false;
+			clearDirty();
 		}
 
 		function collectSchedule() {
@@ -505,9 +866,14 @@
 					const from = row.querySelector(".from-time").value;
 					const shownTo = row.querySelector(".to-time").value;
 					const nextDay = row.querySelector(".next-day-input").checked;
-					if (!from || !shownTo) {
+					// 閉じたままだと赤くしても見えないので、問題のある曜日は開いておく。
+					const flag = (text) => {
 						row.classList.add("invalid");
-						errors.push(`${DAYS[day]} ${index + 1}行目の時刻を入力してください`);
+						dayCard(day).open = true;
+						errors.push(text);
+					};
+					if (!from || !shownTo) {
+						flag(`${DAYS[day]} ${index + 1}行目の時刻を入力してください`);
 						return;
 					}
 					const [fromHour, fromMinute] = from.split(":").map(Number);
@@ -515,8 +881,7 @@
 					const fromTotal = fromHour * 60 + fromMinute;
 					const toTotal = toHour * 60 + toMinute + (nextDay ? 24 * 60 : 0);
 					if (toTotal <= fromTotal) {
-						row.classList.add("invalid");
-						errors.push(`${DAYS[day]} ${index + 1}行目の終了は開始より後にしてください`);
+						flag(`${DAYS[day]} ${index + 1}行目の終了は開始より後にしてください`);
 						return;
 					}
 					schedule[day].push({
@@ -527,6 +892,8 @@
 			}
 			return { schedule, errors };
 		}
+
+		/* ---- 操作 ---- */
 
 		async function runButton(button, action, successText) {
 			button.disabled = true;
@@ -574,7 +941,7 @@
 					method: "PUT",
 					body: JSON.stringify(collected.schedule),
 				});
-				scheduleDirty = false;
+				clearDirty();
 				renderedSchedule = "";
 				return result;
 			}, "予定を保存し、画面へ反映しました。");
