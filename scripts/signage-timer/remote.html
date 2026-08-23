@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="theme-color" content="#090b0e">
+	<title>サイネージ操作盤</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #090b0e;
+			--panel: #12161b;
+			--panel-raised: #181e25;
+			--line: #303842;
+			--text: #f4f1e8;
+			--muted: #aab2bc;
+			--accent: #edc65a;
+			--on: #53d18b;
+			--off: #ff6b62;
+			--danger-bg: #2a1719;
+			--radius: 16px;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			min-width: 320px;
+			background:
+				linear-gradient(rgba(255, 255, 255, .022) 1px, transparent 1px),
+				var(--bg);
+			background-size: 100% 32px;
+			color: var(--text);
+			font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+			font-size: 16px;
+			line-height: 1.55;
+		}
+
+		main {
+			width: min(100% - 28px, 760px);
+			margin: 0 auto;
+			padding: max(24px, env(safe-area-inset-top)) 0 max(48px, env(safe-area-inset-bottom));
+		}
+
+		header { margin-bottom: 18px; }
+
+		.eyebrow {
+			margin: 0 0 4px;
+			color: var(--accent);
+			font: 700 .72rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+			letter-spacing: .16em;
+			text-transform: uppercase;
+		}
+
+		h1 {
+			margin: 0;
+			font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+			font-size: clamp(1.8rem, 8vw, 2.8rem);
+			font-weight: 700;
+			letter-spacing: .03em;
+		}
+
+		h2 {
+			margin: 0 0 14px;
+			font-size: 1.05rem;
+			letter-spacing: .04em;
+		}
+
+		.status-card,
+		.section {
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: rgba(18, 22, 27, .96);
+			box-shadow: 0 16px 40px rgba(0, 0, 0, .24);
+		}
+
+		.status-card {
+			position: relative;
+			overflow: hidden;
+			padding: 20px;
+			margin-bottom: 14px;
+		}
+
+		.status-card::before {
+			content: "";
+			position: absolute;
+			inset: 0 auto 0 0;
+			width: 5px;
+			background: var(--muted);
+		}
+
+		.status-card.on::before { background: var(--on); }
+		.status-card.off::before { background: var(--off); }
+
+		.status-head {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+		}
+
+		.status-dot {
+			width: 13px;
+			height: 13px;
+			border-radius: 50%;
+			background: var(--muted);
+			box-shadow: 0 0 0 5px rgba(170, 178, 188, .12);
+		}
+
+		.on .status-dot { background: var(--on); box-shadow: 0 0 0 5px rgba(83, 209, 139, .14); }
+		.off .status-dot { background: var(--off); box-shadow: 0 0 0 5px rgba(255, 107, 98, .14); }
+
+		#display-state {
+			font-size: 1.55rem;
+			font-weight: 800;
+			letter-spacing: .04em;
+		}
+
+		.status-detail {
+			margin: 10px 0 0 25px;
+			color: var(--muted);
+			font-size: .91rem;
+		}
+
+		.status-detail span { display: block; }
+
+		.notice {
+			display: none;
+			margin: 0 0 14px;
+			padding: 12px 14px;
+			border: 1px solid #745a25;
+			border-radius: 12px;
+			background: #251e10;
+			color: #f5d982;
+			font-size: .9rem;
+		}
+
+		.notice.show { display: block; }
+		.notice.error { border-color: #793a3f; background: var(--danger-bg); color: #ffaaa4; }
+
+		.section {
+			padding: 18px;
+			margin-top: 14px;
+		}
+
+		.control-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+		}
+
+		button,
+		input {
+			font: inherit;
+		}
+
+		button {
+			min-height: 52px;
+			border: 1px solid #46515e;
+			border-radius: 12px;
+			background: var(--panel-raised);
+			color: var(--text);
+			font-weight: 700;
+			cursor: pointer;
+			transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+			touch-action: manipulation;
+		}
+
+		button:hover { background: #222a33; border-color: #697787; }
+		button:active { background: #29333e; }
+		button:focus-visible,
+		input:focus-visible { outline: 3px solid rgba(237, 198, 90, .55); outline-offset: 2px; }
+		button:disabled { cursor: wait; opacity: .55; }
+
+		button.primary { border-color: #947b37; background: #3a321c; color: #ffe394; }
+		button.danger { border-color: #7a3c3f; background: #321b1d; color: #ffb2ac; }
+		button.wide { grid-column: 1 / -1; }
+
+		.schedule-toolbar {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 14px;
+		}
+
+		.schedule-toolbar h2 { margin: 0; }
+		.schedule-toolbar small { color: var(--muted); }
+
+		.day-card {
+			padding: 15px 0;
+			border-top: 1px solid var(--line);
+		}
+
+		.day-card:first-child { border-top: 0; padding-top: 0; }
+		.day-title { margin: 0 0 10px; font-size: 1rem; }
+
+		.range-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) auto;
+			/* end で揃えると、終了側だけ「翌日」のぶん背が高いせいで開始の入力欄が
+			 * 下へずれる。見出しの高さは両方同じなので、上で揃えたほうが行として読める。 */
+			align-items: start;
+			gap: 8px;
+			margin-bottom: 10px;
+			padding: 10px;
+			border: 1px solid transparent;
+			border-radius: 12px;
+			background: #0d1014;
+		}
+
+		.range-row.invalid { border-color: var(--off); background: #211315; }
+
+		.field-label {
+			display: block;
+			margin: 0 0 5px;
+			color: var(--muted);
+			font-size: .72rem;
+			font-weight: 700;
+			letter-spacing: .08em;
+		}
+
+		input[type="time"] {
+			width: 100%;
+			min-height: 46px;
+			border: 1px solid #46515e;
+			border-radius: 9px;
+			background: #171c22;
+			color: var(--text);
+			padding: 8px;
+		}
+
+		.arrow { align-self: center; color: var(--muted); text-align: center; }
+
+		.next-day {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			min-height: 32px;
+			margin-top: 5px;
+			color: var(--muted);
+			font-size: .8rem;
+			cursor: pointer;
+		}
+
+		.next-day input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+		.delete-row {
+			width: 46px;
+			min-height: 46px;
+			padding: 0;
+			border-color: #63383c;
+			color: #ffaaa4;
+			font-size: .78rem;
+		}
+
+		.day-actions {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 8px;
+		}
+
+		.day-actions button {
+			min-height: 44px;
+			padding: 8px;
+			font-size: .78rem;
+		}
+
+		.day-actions .add-row { grid-column: 1 / -1; border-style: dashed; }
+
+		.save-bar {
+			position: sticky;
+			bottom: max(10px, env(safe-area-inset-bottom));
+			z-index: 2;
+			margin-top: 16px;
+			padding: 9px;
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			background: rgba(9, 11, 14, .92);
+			backdrop-filter: blur(10px);
+		}
+
+		#save-schedule { width: 100%; }
+		#schedule-errors { margin-top: 10px; white-space: pre-line; }
+
+		@media (max-width: 480px) {
+			main { width: min(100% - 20px, 760px); }
+			.section { padding: 15px; }
+			.range-row { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); }
+			.delete-row { grid-column: 1 / -1; width: 100%; min-height: 40px; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			* { scroll-behavior: auto !important; transition: none !important; }
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<header>
+			<p class="eyebrow">YP Signage / Remote</p>
+			<h1>サイネージ操作盤</h1>
+		</header>
+
+		<section id="status-card" class="status-card" aria-live="polite">
+			<div class="status-head">
+				<span class="status-dot" aria-hidden="true"></span>
+				<strong id="display-state">確認中</strong>
+			</div>
+			<p class="status-detail">
+				<span id="operation-mode">状態を取得しています</span>
+				<span id="hardware-state"></span>
+			</p>
+		</section>
+
+		<p id="auth-notice" class="notice">本人限定の設定がまだ有効ではありません。</p>
+		<p id="message" class="notice" role="status"></p>
+
+		<section class="section" aria-labelledby="display-controls-title">
+			<h2 id="display-controls-title">画面</h2>
+			<div class="control-grid">
+				<button class="primary" data-action="display-on">画面をつける</button>
+				<button class="danger" data-action="display-off">画面を消す</button>
+				<button class="danger wide" data-action="off-morning">明日の朝7時まで消す</button>
+				<button class="wide" data-action="automatic">自動に戻す</button>
+			</div>
+		</section>
+
+		<section class="section" aria-labelledby="slideshow-controls-title">
+			<h2 id="slideshow-controls-title">スライドショー</h2>
+			<div class="control-grid">
+				<button data-slideshow="pause">一時停止</button>
+				<button data-slideshow="resume">再開</button>
+				<button data-slideshow="prev">前へ</button>
+				<button data-slideshow="next">次へ</button>
+			</div>
+		</section>
+
+		<section class="section" aria-labelledby="schedule-title">
+			<div class="schedule-toolbar">
+				<h2 id="schedule-title">点灯予定</h2>
+				<small id="timezone"></small>
+			</div>
+			<div id="schedule"></div>
+			<p id="schedule-errors" class="notice error" role="alert"></p>
+			<div class="save-bar">
+				<button id="save-schedule" class="primary">予定を保存</button>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		"use strict";
+
+		const DAYS = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+		const scheduleRoot = document.querySelector("#schedule");
+		const message = document.querySelector("#message");
+		const scheduleErrors = document.querySelector("#schedule-errors");
+		let scheduleDirty = false;
+		let renderedSchedule = "";
+
+		function showNotice(element, text, isError = false) {
+			element.textContent = text;
+			element.classList.toggle("error", isError);
+			element.classList.toggle("show", Boolean(text));
+		}
+
+		async function callApi(url, options = {}) {
+			const response = await fetch(url, {
+				...options,
+				headers: options.body ? { "Content-Type": "application/json" } : undefined,
+			});
+			let result;
+			try {
+				result = await response.json();
+			} catch {
+				result = {};
+			}
+			if (!response.ok) {
+				const detail = Array.isArray(result.errors) ? result.errors.join(" / ") : result.error;
+				throw new Error(detail || `HTTP ${response.status}`);
+			}
+			return result;
+		}
+
+		function formatDateTime(epoch) {
+			if (!Number.isFinite(epoch)) return "予定なし";
+			return new Intl.DateTimeFormat("ja-JP", {
+				month: "numeric",
+				day: "numeric",
+				weekday: "short",
+				hour: "2-digit",
+				minute: "2-digit",
+			}).format(new Date(epoch));
+		}
+
+		function updateStatus(data) {
+			const card = document.querySelector("#status-card");
+			card.classList.toggle("on", data.display === "on");
+			card.classList.toggle("off", data.display === "off");
+			document.querySelector("#display-state").textContent = data.display === "on" ? "点灯中" : "消灯中";
+			const mode = data.reason === "override"
+				? `手動で上書き中・${formatDateTime(data.override && data.override.until)}まで`
+				: `自動運転・次の再判定 ${formatDateTime(data.nextEvaluationAt)}`;
+			document.querySelector("#operation-mode").textContent = mode;
+			document.querySelector("#hardware-state").textContent = `DPMS ${data.dpms ?? "不明"} / PowerSaveMode ${data.powerSaveMode ?? "不明"}`;
+			document.querySelector("#timezone").textContent = data.timeZone;
+			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired);
+
+			const serialized = JSON.stringify(data.schedule);
+			// 入力途中を5秒更新で消さない。未編集で予定自体が変わったときだけ描き直す。
+			if (!scheduleDirty && serialized !== renderedSchedule) renderSchedule(data.schedule);
+		}
+
+		function splitTime(value) {
+			const match = /^(\d{2}):(\d{2})$/.exec(value);
+			const total = Number(match[1]) * 60 + Number(match[2]);
+			const shown = total % (24 * 60);
+			return {
+				time: `${String(Math.floor(shown / 60)).padStart(2, "0")}:${String(shown % 60).padStart(2, "0")}`,
+				nextDay: total >= 24 * 60,
+			};
+		}
+
+		function rawRows(day) {
+			return [...document.querySelector(`.day-card[data-day="${day}"] .ranges`).children].map((row) => ({
+				from: row.querySelector(".from-time").value,
+				to: row.querySelector(".to-time").value,
+				nextDay: row.querySelector(".next-day-input").checked,
+			}));
+		}
+
+		function addRange(day, range = { from: "07:00", to: "08:00", nextDay: false }) {
+			const row = document.createElement("div");
+			row.className = "range-row";
+			row.innerHTML = `
+				<label><span class="field-label">開始</span><input class="from-time" type="time" step="60" required></label>
+				<span class="arrow" aria-hidden="true">—</span>
+				<label><span class="field-label">終了</span><input class="to-time" type="time" step="60" required><span class="next-day"><input class="next-day-input" type="checkbox">翌日</span></label>
+				<button class="delete-row" type="button" aria-label="この時間帯を削除">削除</button>`;
+			row.querySelector(".from-time").value = range.from;
+			row.querySelector(".to-time").value = range.to;
+			row.querySelector(".next-day-input").checked = Boolean(range.nextDay);
+			row.querySelectorAll("input").forEach((input) => input.addEventListener("input", () => {
+				scheduleDirty = true;
+				row.classList.remove("invalid");
+			}));
+			row.querySelector(".delete-row").addEventListener("click", () => {
+				row.remove();
+				scheduleDirty = true;
+			});
+			document.querySelector(`.day-card[data-day="${day}"] .ranges`).append(row);
+		}
+
+		function replaceDay(day, rows) {
+			const ranges = document.querySelector(`.day-card[data-day="${day}"] .ranges`);
+			ranges.replaceChildren();
+			rows.forEach((row) => addRange(day, row));
+		}
+
+		function copyDay(sourceDay, targets) {
+			const rows = rawRows(sourceDay);
+			targets.forEach((day) => replaceDay(day, rows));
+			scheduleDirty = true;
+			showNotice(message, `${DAYS[sourceDay]}の内容をコピーしました。保存するまで反映されません。`);
+		}
+
+		function renderSchedule(schedule) {
+			scheduleRoot.replaceChildren();
+			for (let day = 0; day < 7; day += 1) {
+				const card = document.createElement("section");
+				card.className = "day-card";
+				card.dataset.day = day;
+				card.innerHTML = `
+					<h3 class="day-title">${DAYS[day]}</h3>
+					<div class="ranges"></div>
+					<div class="day-actions">
+						<button type="button" class="add-row">行を追加</button>
+						<button type="button" class="copy-weekdays">平日（月〜金）にこの内容をコピー</button>
+						<button type="button" class="copy-weekend">土日にこの内容をコピー</button>
+					</div>`;
+				scheduleRoot.append(card);
+				card.querySelector(".add-row").addEventListener("click", () => {
+					addRange(day);
+					scheduleDirty = true;
+				});
+				card.querySelector(".copy-weekdays").addEventListener("click", () => copyDay(day, [1, 2, 3, 4, 5]));
+				card.querySelector(".copy-weekend").addEventListener("click", () => copyDay(day, [0, 6]));
+				for (const range of schedule[day]) {
+					const to = splitTime(range.to);
+					addRange(day, { from: range.from, to: to.time, nextDay: to.nextDay });
+				}
+			}
+			renderedSchedule = JSON.stringify(schedule);
+			scheduleDirty = false;
+		}
+
+		function collectSchedule() {
+			const schedule = {};
+			const errors = [];
+			for (let day = 0; day < 7; day += 1) {
+				schedule[day] = [];
+				const rows = document.querySelectorAll(`.day-card[data-day="${day}"] .range-row`);
+				rows.forEach((row, index) => {
+					row.classList.remove("invalid");
+					const from = row.querySelector(".from-time").value;
+					const shownTo = row.querySelector(".to-time").value;
+					const nextDay = row.querySelector(".next-day-input").checked;
+					if (!from || !shownTo) {
+						row.classList.add("invalid");
+						errors.push(`${DAYS[day]} ${index + 1}行目の時刻を入力してください`);
+						return;
+					}
+					const [fromHour, fromMinute] = from.split(":").map(Number);
+					const [toHour, toMinute] = shownTo.split(":").map(Number);
+					const fromTotal = fromHour * 60 + fromMinute;
+					const toTotal = toHour * 60 + toMinute + (nextDay ? 24 * 60 : 0);
+					if (toTotal <= fromTotal) {
+						row.classList.add("invalid");
+						errors.push(`${DAYS[day]} ${index + 1}行目の終了は開始より後にしてください`);
+						return;
+					}
+					schedule[day].push({
+						from,
+						to: `${String(Math.floor(toTotal / 60)).padStart(2, "0")}:${String(toTotal % 60).padStart(2, "0")}`,
+					});
+				});
+			}
+			return { schedule, errors };
+		}
+
+		async function runButton(button, action, successText) {
+			button.disabled = true;
+			try {
+				const result = await action();
+				if (result && result.schedule) updateStatus(result);
+				showNotice(message, successText);
+			} catch (error) {
+				showNotice(message, `操作できませんでした: ${error.message}`, true);
+			} finally {
+				button.disabled = false;
+			}
+		}
+
+		document.querySelector('[data-action="display-on"]').addEventListener("click", function () {
+			runButton(this, () => callApi("/api/display/on", { method: "POST" }), "画面をつけました。");
+		});
+		document.querySelector('[data-action="display-off"]').addEventListener("click", function () {
+			if (!window.confirm("次の自動切り替えまで画面を消します。よろしいですか？")) return;
+			runButton(this, () => callApi("/api/display/off", { method: "POST" }), "画面を消しました。");
+		});
+		document.querySelector('[data-action="off-morning"]').addEventListener("click", function () {
+			runButton(this, () => callApi("/api/display/off-until-morning", { method: "POST" }), "明日の朝7時まで消灯します。");
+		});
+		document.querySelector('[data-action="automatic"]').addEventListener("click", function () {
+			runButton(this, () => callApi("/api/override", { method: "DELETE" }), "自動運転に戻しました。");
+		});
+
+		document.querySelectorAll("[data-slideshow]").forEach((button) => {
+			button.addEventListener("click", function () {
+				const labels = { pause: "一時停止しました。", resume: "再開しました。", prev: "前の画像へ移動しました。", next: "次の画像へ移動しました。" };
+				runButton(this, () => callApi(`/api/slideshow/${this.dataset.slideshow}`, { method: "POST" }), labels[this.dataset.slideshow]);
+			});
+		});
+
+		document.querySelector("#save-schedule").addEventListener("click", function () {
+			const collected = collectSchedule();
+			if (collected.errors.length > 0) {
+				showNotice(scheduleErrors, collected.errors.join("\n"), true);
+				return;
+			}
+			showNotice(scheduleErrors, "");
+			runButton(this, async () => {
+				const result = await callApi("/api/schedule", {
+					method: "PUT",
+					body: JSON.stringify(collected.schedule),
+				});
+				scheduleDirty = false;
+				renderedSchedule = "";
+				return result;
+			}, "予定を保存し、画面へ反映しました。");
+		});
+
+		async function refresh() {
+			try {
+				updateStatus(await callApi("/api/status"));
+			} catch (error) {
+				showNotice(message, `状態を取得できません: ${error.message}`, true);
+			}
+		}
+
+		refresh();
+		setInterval(refresh, 5000);
+	</script>
+</body>
+</html>

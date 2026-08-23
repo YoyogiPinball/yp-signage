@@ -1,0 +1,31 @@
+# 画面タイマー・リモコン（scripts/signage-timer/）を常駐させるユーザーサービス。
+# 配布先: ~/.config/systemd/user/signage-timer.service（deploy.sh が置く）
+#
+# ユーザーサービスにしているのは、画面を消すのに GNOME(Mutter) のセッションバスへ
+# 話しかける必要があるため。system サービスにすると、そのバスへ届かない。
+#
+# 初回だけ表示機で:  systemctl --user enable --now signage-timer
+# 設定を渡したいとき: ~/.config/yp-signage/timer.env に KEY=VALUE で書く（無くても動く）
+#   SIGNAGE_TIMER_USER  Tailscale のログイン名。設定すると本人以外を弾く（未設定だと誰でも通る）
+#   SIGNAGE_TIMER_PORT  リモコンの待受ポート（既定 8081）
+#   SIGNAGE_TIMER_TZ    判定に使うタイムゾーン（既定 Asia/Tokyo）
+
+[Unit]
+Description=yp-signage screen timer and remote
+# GNOME のセッションが立ち上がってから動かす。先に立つと Mutter が居らず、
+# 当て直しが空振りし続ける（30秒ごとに再試行はするので致命的ではない）。
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/yp-signage/timer.env
+ExecStart=/usr/bin/node %h/run/signage-timer/index.js
+Restart=on-failure
+RestartSec=5
+# 停止時は index.js が SIGTERM を受けて画面を点けてから終わる。
+# 落ちたまま画面が黒く残らないよう、猶予を短くしすぎない。
+TimeoutStopSec=15
+
+[Install]
+WantedBy=graphical-session.target

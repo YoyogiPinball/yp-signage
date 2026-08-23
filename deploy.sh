@@ -58,6 +58,22 @@ deploy_signage() {
 	# モジュール側は global.root_path から samples/ を解決するので、この場所が前提になる。
 	scp -q "$ROOT/samples/"*.jpg "$ROOT/samples/README.md" "$HOST":'~/MagicMirror/samples/'
 
+	# --- 画面タイマー・リモコン（常駐サービス） ---
+	# フォルダ単位で送る。ファイルを1つ足すたびにここを直すと、配り忘れで
+	# 「配布したのに動きが変わらない」という分かりにくい壊れ方になる。
+	ssh "$HOST" 'mkdir -p ~/run/signage-timer ~/.config/systemd/user'
+	scp -q "$D/signage-timer/"* "$HOST":'~/run/signage-timer/'
+	scp -q "$ROOT/host/systemd/signage-timer.service" "$HOST":'~/.config/systemd/user/signage-timer.service'
+	# ユニットを置き換えたら読み直させる。動いている最中なら入れ替える。
+	# 有効化していない環境では触らない（勝手に常駐させない）。
+	ssh "$HOST" 'systemctl --user daemon-reload
+		if systemctl --user is-enabled --quiet signage-timer.service 2>/dev/null; then
+			systemctl --user restart signage-timer.service
+			echo "  画面タイマーを入れ替えました"
+		else
+			echo "  画面タイマーは未設定です。使うなら表示機で: systemctl --user enable --now signage-timer"
+		fi'
+
 	echo "yp-signage を $HOST へ配布完了"
 }
 
