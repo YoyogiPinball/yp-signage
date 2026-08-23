@@ -1,4 +1,4 @@
-> 最終更新: 2026-08-23（Sun）18:00
+> 最終更新: 2026-08-23（Sun）22:10
 
 # yp-signage — 縦置きモニターの常時稼働サイネージ
 
@@ -257,16 +257,36 @@ systemctl --user enable --now signage-timer
 `SIGNAGE_TIMER_USER` を設定しない既定の状態なら、Tailscale を入れなくても画面タイマーの自動運転と表示機上のリモコンは動きます。
 ただし、スマートフォンや別の PC など、**表示機の外からリモコンを開くには Tailscale が必要です。**
 
-表示機と操作する端末を同じ Tailnet に接続し、表示機で次のコマンドを実行してください。
+表示機と操作する端末を同じ Tailnet に接続し、次の順で進めてください。
+
+**1. `SIGNAGE_TIMER_USER` に自分の Tailscale ログイン名を書く。**
+**未設定のまま Tailscale Serve で公開すると、Tailnet に入っている人なら誰でも操作できます。**
+
+ログイン名は次のコマンドで確認します。
 
 ```bash
-tailscale serve --bg --https=443 http://127.0.0.1:8081
+tailscale status --json | grep -o '"LoginName": *"[^"]*"'
 ```
 
-`SIGNAGE_TIMER_PORT` を変えた場合は、リモコンの URL とコマンド末尾の `8081` も同じポートへ読み替えてください。
+`tailscale status`（`--json` なし）の一覧にも出ますが、**列幅で末尾が切れます。**
+`you@github` が `you@` に見えるので、そのまま書き写すと値が一致せず、リモコンが常に 403 を返します。
+書き換えたら `systemctl --user restart signage-timer` で反映してください。
 
-このときは、先に `timer.env` の `SIGNAGE_TIMER_USER` に自分の Tailscale ログイン名を書き、
-`signage-timer` を再起動してください。**未設定のまま Tailscale Serve で公開すると、Tailnet に入っている人なら誰でも操作できます。**
+**2. Tailnet で Serve 機能を有効にする。**
+Tailscale の既定では無効です。有効化していない状態でコマンドを実行すると、
+`Serve is not enabled on your tailnet.` と管理画面の URL を表示したまま待ち続けます
+（エラー終了しないため、設定は保存されません）。表示された URL をブラウザで開いて有効にしてください。
+
+**3. 表示機で Serve を起動する。**
+
+```bash
+sudo tailscale serve --bg --https=443 http://127.0.0.1:8081
+```
+
+`sudo` は、Tailscale の操作ユーザー（operator）を設定していない環境で必要です。
+毎回付けたくなければ、先に `sudo tailscale set --operator=$USER` を一度実行してください。
+
+`SIGNAGE_TIMER_PORT` を変えた場合は、リモコンの URL とコマンド末尾の `8081` も同じポートへ読み替えてください。
 
 リモコンでは、次の操作ができます。
 
