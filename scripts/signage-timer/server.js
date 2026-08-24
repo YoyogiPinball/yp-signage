@@ -121,11 +121,17 @@ function nextMorning(now) {
 		hourCycle: "h23",
 	});
 	const today = zonedParts(now, formatter);
-	const tomorrow = new Date(Date.UTC(today.year, today.month - 1, today.day + 1));
+	// 未明に押したときは同日の朝、それ以降は翌日の朝を期限にする。
+	// 07:00 ちょうどはすでに到来済みなので、次に来る翌日の 07:00 を選ぶ。
+	const targetDay = new Date(Date.UTC(
+		today.year,
+		today.month - 1,
+		today.day + (today.hour < 7 ? 0 : 1),
+	));
 	const wallEpoch = Date.UTC(
-		tomorrow.getUTCFullYear(),
-		tomorrow.getUTCMonth(),
-		tomorrow.getUTCDate(),
+		targetDay.getUTCFullYear(),
+		targetDay.getUTCMonth(),
+		targetDay.getUTCDate(),
 		7,
 	);
 	const offsetAt = (epoch) => {
@@ -205,6 +211,11 @@ async function handle(request, response, controller) {
 		sendJson(response, 200, status(controller));
 		return;
 	}
+	if (request.method === "POST" && pathname === "/api/display/off-until-on") {
+		controller.setOverride({ kind: "off-until-on" });
+		sendJson(response, 200, status(controller));
+		return;
+	}
 	if (request.method === "DELETE" && pathname === "/api/override") {
 		controller.setOverride(null);
 		sendJson(response, 200, status(controller));
@@ -260,4 +271,4 @@ function startServer(controller) {
 	return server;
 }
 
-module.exports = { startServer };
+module.exports = { startServer, handle, nextMorning };

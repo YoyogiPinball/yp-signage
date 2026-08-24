@@ -75,11 +75,30 @@ test("期限内の上書きは保たれる", (t) => {
 	assert.deepEqual(loadState(), { schedule: defaultSchedule(), override });
 });
 
+test("手動でつけるまでの消灯は期限なしで保たれる", (t) => {
+	const file = useTemporaryState(t);
+	const override = { kind: "off-until-on" };
+	fs.writeFileSync(file, JSON.stringify({ schedule: defaultSchedule(), override }));
+
+	assert.deepEqual(loadState(), { schedule: defaultSchedule(), override });
+});
+
 test("保存して読み直すと同じ内容になる", (t) => {
 	useTemporaryState(t);
 	const state = {
 		schedule: defaultSchedule(),
 		override: { kind: "on", until: Date.now() + 60_000 },
+	};
+
+	saveState(state);
+	assert.deepEqual(loadState(), state);
+});
+
+test("手動でつけるまでの消灯も保存して読み直せる", (t) => {
+	useTemporaryState(t);
+	const state = {
+		schedule: defaultSchedule(),
+		override: { kind: "off-until-on" },
 	};
 
 	saveState(state);

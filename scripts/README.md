@@ -12,6 +12,7 @@
 | `mm-ctl.sh` | スライドショーを操作する（下記） |
 | `mm-shot.sh` | 実際に映っている画面を1枚 PNG に撮る（`mm-shot.py` が実体） |
 | `mm-fix-sandbox.sh` | Electron の sandbox 権限を直す。初回のみ・sudo が要る |
+| `signage-display-on.sh` | 「次につけるまで消す」を解除し、画面を点灯する |
 
 ## スライドショーの操作
 
@@ -23,6 +24,12 @@ bash ~/run/mm-ctl.sh plate {0-100|reset}
 `pause` / `resume` / `toggle` は自動送りの一時停止と再開、`next` / `prev` は手動の前後送り、
 `topbar` は上バーの半透明プレートの表示切替。手元からは
 `ssh <表示機> 'bash ~/run/mm-ctl.sh next'` のように叩ける。
+
+画面の期限なし消灯をSSHから解除するときは、次の1行を使う。
+
+```bash
+ssh <表示機> 'bash ~/run/signage-display-on.sh'
+```
 
 `mm-ctl.sh plate` は時計の背景プレートの濃さを、画面を見ながら変えるためのもの。
 

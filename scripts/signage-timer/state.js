@@ -35,6 +35,7 @@ function normalizeSchedule(schedule) {
 }
 
 function normalizeOverride(override, now) {
+	if (override && override.kind === "off-until-on") return { kind: "off-until-on" };
 	if (!override || (override.kind !== "on" && override.kind !== "off")) return null;
 	if (!Number.isFinite(override.until) || override.until <= now) return null;
 	return { kind: override.kind, until: override.until };

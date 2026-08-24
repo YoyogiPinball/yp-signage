@@ -11,6 +11,10 @@ let intervalTimer = null;
 let evaluationTimer = null;
 let stopping = false;
 
+function isManualOff(override) {
+	return Boolean(override && override.kind === "off-until-on");
+}
+
 function getState() {
 	if (currentState === null) currentState = stateStore.loadState();
 	return currentState;
@@ -69,7 +73,10 @@ function setOverride(override) {
 
 function setSchedule(schedule) {
 	const state = getState();
-	const override = state.override && state.override.until > Date.now() ? state.override : null;
+	const override = isManualOff(state.override)
+		|| (state.override && state.override.until > Date.now())
+		? state.override
+		: null;
 	const nextState = { schedule, override };
 	// 予定と上書きを一緒に保存し、部分的な書き換えを作らない。
 	stateStore.saveState(nextState);

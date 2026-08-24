@@ -242,6 +242,21 @@ test("有効な上書きは表示と理由を置き換える", () => {
 	});
 });
 
+test("手動でつけるまでの消灯は期限なしで予定を上書きする", () => {
+	const now = epoch("2025-01-05T23:00:00Z"); // 月曜 08:00（日本時間）
+	const schedule = weekly({ 1: [{ from: "07:00", to: "10:00" }] });
+	assert.deepEqual(decide({
+		now,
+		timeZone: "Asia/Tokyo",
+		schedule,
+		override: { kind: "off-until-on" },
+	}), {
+		display: "off",
+		reason: "override",
+		nextEvaluationAt: null,
+	});
+});
+
 test("上書き中も先に来るスケジュール境界を次の再判定時刻として返す", () => {
 	const schedule = weekly({ 1: [{ from: "07:00", to: "10:00" }] });
 	const result = decide({

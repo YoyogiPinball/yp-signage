@@ -614,7 +614,8 @@
 					<div class="control-grid">
 						<button class="solid" data-action="display-on"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>つける</button>
 						<button class="danger" data-action="display-off"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>消す</button>
-						<button class="danger wide" data-action="off-morning"><svg class="icon" aria-hidden="true"><use href="#i-sunrise"/></svg>明日の朝7時まで消す</button>
+						<button class="danger wide" data-action="off-morning"><svg class="icon" aria-hidden="true"><use href="#i-sunrise"/></svg>翌朝7時まで消す</button>
+						<button class="danger wide" data-action="off-until-on"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>次につけるまで消す</button>
 						<button class="ghost wide" data-action="automatic"><svg class="icon" aria-hidden="true"><use href="#i-auto"/></svg>自動に戻す</button>
 					</div>
 				</div>
@@ -731,12 +732,15 @@
 			document.querySelector("#display-state").textContent = data.display === "on" ? "点灯中" : "消灯中";
 
 			const manual = data.reason === "override";
+			const manualOff = manual && data.override && data.override.kind === "off-until-on";
 			const badge = document.querySelector("#mode-badge");
-			badge.textContent = manual ? "手動で上書き中" : "自動運転";
+			badge.textContent = manualOff ? "明示点灯待ち" : manual ? "手動で上書き中" : "自動運転";
 			badge.classList.toggle("manual", manual);
-			document.querySelector("#mode-detail").textContent = manual
-				? `${formatDateTime(data.override && data.override.until)}まで、この状態を保ちます`
-				: `次の切り替え ${formatDateTime(data.nextEvaluationAt)}`;
+			document.querySelector("#mode-detail").textContent = manualOff
+				? "リモコンの「つける」またはSSHコマンドを実行するまで、予定では点灯しません"
+				: manual
+					? `${formatDateTime(data.override && data.override.until)}まで、この状態を保ちます`
+					: `次の切り替え ${formatDateTime(data.nextEvaluationAt)}`;
 			// 上書き中だけ「自動に戻す」を目立たせる。ふだんは押す用のないボタン。
 			document.querySelector('[data-action="automatic"]').classList.toggle("suggested", manual);
 
@@ -934,7 +938,11 @@
 			runButton(this, () => callApi("/api/display/off", { method: "POST" }), "画面を消しました。");
 		});
 		document.querySelector('[data-action="off-morning"]').addEventListener("click", function () {
-			runButton(this, () => callApi("/api/display/off-until-morning", { method: "POST" }), "明日の朝7時まで消灯します。");
+			runButton(this, () => callApi("/api/display/off-until-morning", { method: "POST" }), "翌朝7時まで消灯します。");
+		});
+		document.querySelector('[data-action="off-until-on"]').addEventListener("click", function () {
+			if (!window.confirm("自動予定やモニター操作では点灯しません。リモコンの「つける」またはSSHコマンドで解除するまで消します。よろしいですか？")) return;
+			runButton(this, () => callApi("/api/display/off-until-on", { method: "POST" }), "次に明示的につけるまで消灯します。");
 		});
 		document.querySelector('[data-action="automatic"]').addEventListener("click", function () {
 			runButton(this, () => callApi("/api/override", { method: "DELETE" }), "自動運転に戻しました。");

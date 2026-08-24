@@ -230,6 +230,13 @@ function decide({ now, timeZone, schedule, override }) {
 	const formatter = createFormatter(timeZone);
 	const ranges = mergeWeeklyRanges(schedule);
 	const scheduleNext = nextBoundaryEpoch(now, formatter, ranges, effectiveBoundaries(ranges));
+	if (override && override.kind === "off-until-on") {
+		return {
+			display: "off",
+			reason: "override",
+			nextEvaluationAt: null,
+		};
+	}
 	const validOverride = override
 		&& (override.kind === "on" || override.kind === "off")
 		&& Number.isFinite(override.until)
