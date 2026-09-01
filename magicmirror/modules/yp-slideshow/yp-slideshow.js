@@ -53,6 +53,7 @@ Module.register("yp-slideshow", {
 		this.loaded = false;
 		this.timer = null;
 		this.lastLogged = null; // 直近で r5-now.log に記録した画像URL（同じ画像の二重記録を防ぐ）
+		this.lastShot = null; // 直近で縮小画像を送った画像URL（バッジ描画のたびに作り直さない）
 		this.reason = ""; // 次に記録する行の種別（"" = 自動送り / next / prev / alt）
 		this.allBroken = false; // 並びの全画像が読めない状態か（バッジの文言に使う）
 		this.badge = null;
@@ -283,6 +284,47 @@ Module.register("yp-slideshow", {
 		}, this.config.slideInterval);
 	},
 
+	// --- リモコン用の縮小画像 -------------------------------------------
+	// 画面に出した1枚を小さく作り直して node_helper へ渡す。ここでしか作れない。
+	// node_helper（Node 側）は画像を読み込む手段を持たず、リモコン（8081番）からは
+	// 画像を配信している 8080番が見えないため、表示した瞬間のブラウザが唯一の入口になる。
+	scaleToJpeg(img, maxSide, quality) {
+		const longest = Math.max(img.naturalWidth, img.naturalHeight) || 1;
+		const scale = Math.min(1, maxSide / longest);
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+		canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+		const context = canvas.getContext("2d");
+		// 透過 PNG をそのまま JPEG にすると透明部分が真っ黒に沈む。画面と同じ黒で埋める。
+		context.fillStyle = "#000";
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		context.drawImage(img, 0, 0, canvas.width, canvas.height);
+		return canvas.toDataURL("image/jpeg", quality);
+	},
+
+	// フェードが終わってから作る。4K の画像だと縮小に数百ミリ秒かかることがあり、
+	// 切り替えの最中に走らせると画面の動きが引っかかる。
+	captureShots(img, url) {
+		if (this.lastShot === url) return;
+		clearTimeout(this.shotTimer);
+		this.shotTimer = setTimeout(() => {
+			if (this.pb.current() !== url) return; // 待っている間に次の画像へ進んでいた
+			let shots;
+			try {
+				shots = {
+					thumb: this.scaleToJpeg(img, 160, 0.6), // 一覧に並べる小さい版
+					preview: this.scaleToJpeg(img, 1080, 0.8), // タップで開く拡大版
+				};
+			} catch (e) {
+				// 縮小に失敗しても表示は続ける。リモコンはその1枚だけ名前表示になる。
+				console.warn(`[yp-slideshow] 縮小画像を作れません: ${e.message}`);
+				return;
+			}
+			this.lastShot = url;
+			this.sendSocketNotification("YP_SLIDESHOW_SHOTS", { url, ...shots });
+		}, this.config.fadeSpeed);
+	},
+
 	getDom() {
 		const wrapper = document.createElement("div");
 		wrapper.className = "mmm-r5";
@@ -302,7 +344,13 @@ Module.register("yp-slideshow", {
 			this.lastLogged = shown;
 			// reason を添えて「なぜこの画像に変わったか」も残す。手動送りと自動送りが
 			// ログ上で区別できないと、prev/next の不具合を後から追えない。
-			this.sendSocketNotification("YP_SLIDESHOW_NOW", { url: this.lastLogged, reason: this.reason });
+			// 何枚目かも添える。リモコン側に「1180 / 2442」と出すためで、ログの書式は変えない。
+			this.sendSocketNotification("YP_SLIDESHOW_NOW", {
+				url: this.lastLogged,
+				reason: this.reason,
+				position: this.pb.position(),
+				total: this.pb.size(),
+			});
 		}
 
 		// ぼかし拡大背景: 同じ画像を cover＋ぼかしで背面に敷き、レターボックスの帯を
@@ -334,6 +382,11 @@ Module.register("yp-slideshow", {
 				// 次にどの画像へ逃がすか、全部だめなら止めるかは playback 側が決める。
 				this.apply(this.pb.markBroken(shown), 0);
 			}, this.config.fadeSpeed);
+		};
+		// 読み込めた画像だけを縮小の材料にする（onerror 側とは排他）。
+		img.onload = () => {
+			if (this.pb.current() !== shown) return;
+			this.captureShots(img, shown);
 		};
 		img.src = shown;
 		wrapper.appendChild(img);

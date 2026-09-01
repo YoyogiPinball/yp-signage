@@ -352,6 +352,237 @@
 			color: #14563e;
 		}
 
+		/* ---- いま出ている画像 ---- */
+
+		.now-card {
+			border: 1px solid var(--rule);
+			border-radius: 11px;
+			background: var(--card);
+			box-shadow: 0 1px 0 var(--rule-strong);
+		}
+
+		.now-head {
+			display: grid;
+			grid-template-columns: 64px minmax(0, 1fr);
+			align-items: center;
+			gap: 12px;
+			padding: 12px 14px 10px;
+		}
+
+		/* 縮小画像は押すと拡大する。ファイル名のコピーとは別のボタンにしてあり、
+		   ボタンの入れ子（HTMLとして成り立たない）を避けている。 */
+		.shot-button {
+			display: block;
+			width: 100%;
+			aspect-ratio: 1;
+			min-height: 0;
+			padding: 0;
+			overflow: hidden;
+			border: 1px solid var(--rule-strong);
+			border-radius: 8px;
+			background: var(--sunk);
+			box-shadow: none;
+		}
+
+		/* 切り抜かずに全体を出す。サイネージは縦画面で写真も縦長が多く、正方形に
+		   切り抜くと中央しか映らないため、小さくても全体が見えるほうが見分けられる。
+		   余白は画面と同じ黒で埋めて、実際の見え方に寄せる。 */
+		.shot-button img {
+			display: block;
+			width: 100%;
+			height: 100%;
+			object-fit: contain;
+			background: #16181c;
+		}
+
+		/* まだ縮小できていない1枚。押しても何も出ないので、押せないことを見せる。 */
+		.shot-button:disabled { opacity: .4; cursor: default; }
+		.shot-button:disabled img { visibility: hidden; }
+
+		/* ファイル名はそれ自体がコピーボタン。画面を見て気になった1枚の名前を、
+		   手で打ち直さずに実機の操作へ持っていけるようにする。 */
+		.now-file {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 20px;
+			align-items: center;
+			gap: 10px;
+			width: 100%;
+			min-height: 0;
+			padding: 0;
+			border: none;
+			border-radius: 0;
+			background: none;
+			box-shadow: none;
+			text-align: left;
+		}
+
+		.now-file:hover { background: none; }
+
+		.now-name {
+			font: 700 .95rem/1.45 var(--mono);
+			/* 深いフォルダ名でも横に溢れさせない。区切りの無い長い名前でも折る。 */
+			overflow-wrap: anywhere;
+		}
+
+		.now-file .icon { color: var(--ink-soft); }
+		.now-file:hover .icon { color: var(--ink); }
+
+		/* 取得できていないときはコピーするものが無いので、コピーの印も出さない。 */
+		.now-file:not([data-file]) .icon,
+		.now-file[data-file=""] .icon { visibility: hidden; }
+
+		.now-meta {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 6px 12px;
+			margin: 0;
+			padding: 8px 14px 11px;
+			border-top: 1px dashed var(--rule);
+			color: var(--ink-soft);
+			font: .76rem/1.5 var(--mono);
+		}
+
+		.tag {
+			padding: 1px 7px;
+			border: 1px solid var(--rule-strong);
+			border-radius: 999px;
+			background: var(--sunk);
+			color: var(--ink-soft);
+			font: 700 .68rem/1.5 var(--mono);
+			letter-spacing: .04em;
+			white-space: nowrap;
+		}
+
+		/* 読み込めなかった1枚。探して消すのはこの行なので、他の種別と色で分ける。 */
+		.tag.broken {
+			border-color: var(--off);
+			background: var(--off-wash);
+			color: #8f2a1d;
+		}
+
+		.history { margin-top: 9px; }
+
+		.history-head {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			padding: 10px 4px;
+			list-style: none;
+			cursor: pointer;
+			color: var(--ink-soft);
+			font-size: .82rem;
+			font-weight: 700;
+		}
+
+		.history-head::-webkit-details-marker { display: none; }
+		.history[open] .chev { transform: rotate(180deg); }
+
+		.history-list {
+			margin: 0;
+			padding: 0;
+			border: 1px solid var(--rule);
+			border-radius: 11px;
+			background: var(--card);
+			list-style: none;
+			overflow: hidden;
+		}
+
+		.history-list li + li { border-top: 1px solid var(--rule); }
+
+		/* 履歴の1行。左に縮小画像、右に時刻・名前・種別。名前側を押すとコピーする。 */
+		.hist-row {
+			display: grid;
+			grid-template-columns: 48px minmax(0, 1fr);
+			align-items: center;
+			gap: 10px;
+			padding: 8px 12px;
+		}
+
+		.hist-copy {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			align-items: baseline;
+			gap: 4px 10px;
+			width: 100%;
+			min-height: 0;
+			padding: 0;
+			border: none;
+			border-radius: 0;
+			background: none;
+			box-shadow: none;
+			font-weight: 400;
+			text-align: left;
+		}
+
+		.hist-copy:hover { background: none; }
+
+		.hist-time { color: var(--ink-soft); font: .74rem/1.5 var(--mono); }
+		.hist-name { font: .82rem/1.5 var(--mono); overflow-wrap: anywhere; }
+		.hist-copy .tag { justify-self: end; }
+
+		/* いま出ている1枚は履歴の先頭にも並ぶ。どれが現在かを左の罫で示す。 */
+		.history-list li:first-child .hist-row { box-shadow: inset 3px 0 0 var(--ink); }
+
+		/* ---- 拡大表示 ---- */
+
+		.viewer {
+			width: min(94vw, 900px);
+			max-height: 90vh;
+			padding: 0;
+			border: 1px solid var(--rule-strong);
+			border-radius: var(--radius);
+			background: var(--card);
+			color: var(--ink);
+			overflow: hidden;
+		}
+
+		.viewer::backdrop { background: rgba(22, 24, 28, .72); }
+
+		/* 元の縦横比のまま収める。背景は画面と同じ黒にして、余白を帯として見せる。 */
+		.viewer-img {
+			display: block;
+			width: 100%;
+			max-height: 68vh;
+			object-fit: contain;
+			background: #16181c;
+		}
+
+		.viewer-bar {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 10px;
+			padding: 11px 13px;
+			border-top: 1px solid var(--rule);
+		}
+
+		/* 拡大したまま名前をコピーできるようにする。拡大して「これだ」と分かった直後に、
+		   閉じてから押し直させない。 */
+		.viewer-name {
+			min-height: 0;
+			padding: 0;
+			border: none;
+			border-radius: 0;
+			background: none;
+			box-shadow: none;
+			font: .8rem/1.45 var(--mono);
+			font-weight: 400;
+			text-align: left;
+			overflow-wrap: anywhere;
+		}
+
+		.viewer-name:hover { background: none; text-decoration: underline; }
+
+		.viewer-bar button { min-height: 44px; padding: 8px 16px; }
+
+		.history-empty {
+			margin: 0;
+			padding: 14px;
+			color: var(--ink-soft);
+			font-size: .82rem;
+		}
+
 		/* ---- 予定パネル ---- */
 
 		.schedule-hint {
@@ -629,6 +860,29 @@
 						<button data-slideshow="resume"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>再開</button>
 					</div>
 				</div>
+
+				<div class="group">
+					<h2 class="group-head">いま出ている画像</h2>
+					<div class="now-card" aria-live="polite">
+						<div class="now-head">
+							<button id="now-shot" class="shot-button" type="button" aria-label="この画像を拡大して見る" disabled>
+								<img id="now-thumb" alt="">
+							</button>
+							<button id="now-file" class="now-file" type="button" aria-label="ファイル名をコピー">
+								<span id="now-name" class="now-name">取得中</span>
+								<svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+							</button>
+						</div>
+						<p id="now-meta" class="now-meta"></p>
+					</div>
+
+					<details class="history">
+						<summary class="history-head">
+							<svg class="chev icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>直近10枚
+						</summary>
+						<div id="history" role="group" aria-label="直近に表示した画像"></div>
+					</details>
+				</div>
 			</section>
 
 			<section id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" tabindex="0" hidden>
@@ -641,6 +895,14 @@
 			</section>
 		</div>
 	</main>
+
+	<dialog id="viewer" class="viewer" aria-label="画像の拡大表示">
+		<img id="viewer-img" class="viewer-img" alt="">
+		<div class="viewer-bar">
+			<button id="viewer-name" class="viewer-name" type="button" aria-label="ファイル名をコピー"></button>
+			<button id="viewer-close" type="button" class="ghost">閉じる</button>
+		</div>
+	</dialog>
 
 	<script>
 		"use strict";
@@ -753,6 +1015,177 @@
 			// 入力途中を5秒更新で消さない。未編集で予定自体が変わったときだけ描き直す。
 			if (!scheduleDirty && serialized !== renderedSchedule) renderSchedule(data.schedule);
 		}
+
+		/* ---- いま出ている画像 ---- */
+
+		// 履歴の種別。node_helper は素の reason（next / prev / alt / broken）を返すので、
+		// 画面に出す言葉はこちらで持つ。ラベルが無い行は自動送り。
+		const NOW_REASONS = { next: "次へ", prev: "前へ", alt: "代替", broken: "壊れ" };
+
+		const nowName = document.querySelector("#now-name");
+		const nowMeta = document.querySelector("#now-meta");
+		const nowFile = document.querySelector("#now-file");
+		const nowShot = document.querySelector("#now-shot");
+		const nowThumb = document.querySelector("#now-thumb");
+		const historyRoot = document.querySelector("#history");
+		const viewer = document.querySelector("#viewer");
+		const viewerImg = document.querySelector("#viewer-img");
+		const viewerName = document.querySelector("#viewer-name");
+		let nowPending = false;
+		let renderedHistory = "";
+
+		// 縮小画像の在りか。同じ URL ならブラウザがキャッシュを使うので、
+		// 一覧を作り直しても取り直しは起きない。
+		function shotUrl(file, size) {
+			return `/api/slideshow/shot?size=${size}&file=${encodeURIComponent(file)}`;
+		}
+
+		function setThumb(img, file, hasShot) {
+			const wanted = hasShot ? shotUrl(file, "thumb") : "";
+			// 同じ画像で src を入れ直すと一瞬消えるので、変わったときだけ差し替える。
+			if (img.getAttribute("src") === wanted) return;
+			if (wanted) img.src = wanted;
+			else img.removeAttribute("src");
+		}
+
+		function openViewer(file) {
+			if (!file) return;
+			viewerImg.src = shotUrl(file, "preview");
+			viewerName.textContent = file;
+			viewerName.dataset.file = file;
+			if (!viewer.open) viewer.showModal();
+		}
+
+		function makeTag(reason) {
+			if (!NOW_REASONS[reason]) return null;
+			const tag = document.createElement("span");
+			tag.className = reason === "broken" ? "tag broken" : "tag";
+			tag.textContent = NOW_REASONS[reason];
+			return tag;
+		}
+
+		async function copyFile(file) {
+			if (!file) return;
+			try {
+				await navigator.clipboard.writeText(file);
+				showNotice(message, `${file} をコピーしました。`);
+			} catch {
+				// Tailscale Serve 経由（HTTPS）なら通る。素の http でポートを直打ちしたときは
+				// ブラウザがコピーを拒むので、その場合の手段を案内する。
+				showNotice(message, "コピーできませんでした。ファイル名を長押しで選んでください。", true);
+			}
+		}
+
+		function makeShotButton(item) {
+			const button = document.createElement("button");
+			button.type = "button";
+			button.className = "shot-button";
+			button.dataset.file = item.file;
+			// 表示した直後はまだ縮小できていない。押せる見た目にして何も出ないより、
+			// 押せないことを見せる。
+			button.disabled = !item.hasShot;
+			button.setAttribute("aria-label", `${item.file} を拡大して見る`);
+			const img = document.createElement("img");
+			img.alt = "";
+			setThumb(img, item.file, item.hasShot);
+			button.appendChild(img);
+			return button;
+		}
+
+		function renderHistory(recent) {
+			// 中身が変わっていなければ作り直さない。5秒ごとに全部組み直すと、
+			// 開いている一覧が更新のたびにちらつく。
+			const serialized = JSON.stringify(recent);
+			if (serialized === renderedHistory) return;
+			renderedHistory = serialized;
+
+			historyRoot.textContent = "";
+			if (recent.length === 0) {
+				const empty = document.createElement("p");
+				empty.className = "history-empty";
+				empty.textContent = "まだ履歴がありません。";
+				historyRoot.appendChild(empty);
+				return;
+			}
+			const list = document.createElement("ol");
+			list.className = "history-list";
+			// 受け取る配列は末尾が最新。新しい順に直して、いま出ている1枚を先頭に置く。
+			for (const item of [...recent].reverse()) {
+				const row = document.createElement("div");
+				row.className = "hist-row";
+				row.appendChild(makeShotButton(item));
+
+				const copy = document.createElement("button");
+				copy.type = "button";
+				copy.className = "hist-copy";
+				copy.dataset.file = item.file;
+				const time = document.createElement("span");
+				time.className = "hist-time";
+				time.textContent = item.time;
+				const name = document.createElement("span");
+				name.className = "hist-name";
+				name.textContent = item.file;
+				copy.append(time, name);
+				const tag = makeTag(item.reason);
+				if (tag) copy.appendChild(tag);
+				row.appendChild(copy);
+
+				const line = document.createElement("li");
+				line.appendChild(row);
+				list.appendChild(line);
+			}
+			historyRoot.appendChild(list);
+		}
+
+		function updateNow(data) {
+			const current = data.current;
+			nowFile.dataset.file = current ? current.file : "";
+			nowName.textContent = current ? current.file : "まだ画像を表示していません";
+			nowShot.dataset.file = current ? current.file : "";
+			nowShot.disabled = !(current && current.hasShot);
+			setThumb(nowThumb, current ? current.file : "", Boolean(current && current.hasShot));
+			nowMeta.textContent = "";
+			if (current) {
+				const detail = [`${current.time} から表示`];
+				// 枚数は MagicMirror を再起動すると数え直しになる。0 のときは出さない。
+				if (current.total > 0) detail.push(`${current.position} / ${current.total} 枚目`);
+				nowMeta.appendChild(document.createTextNode(detail.join("　")));
+				const tag = makeTag(current.reason);
+				if (tag) nowMeta.appendChild(tag);
+			}
+			renderHistory(Array.isArray(data.recent) ? data.recent : []);
+		}
+
+		function showNowError(detail) {
+			nowFile.dataset.file = "";
+			nowName.textContent = "取得できません";
+			nowShot.dataset.file = "";
+			nowShot.disabled = true;
+			setThumb(nowThumb, "", false);
+			nowMeta.textContent = detail;
+			renderHistory([]);
+		}
+
+		nowFile.addEventListener("click", () => copyFile(nowFile.dataset.file));
+		nowShot.addEventListener("click", () => openViewer(nowShot.dataset.file));
+		historyRoot.addEventListener("click", (event) => {
+			const shot = event.target.closest(".shot-button");
+			if (shot) {
+				openViewer(shot.dataset.file);
+				return;
+			}
+			const copy = event.target.closest(".hist-copy");
+			if (copy) copyFile(copy.dataset.file);
+		});
+
+		viewerName.addEventListener("click", () => copyFile(viewerName.dataset.file));
+		document.querySelector("#viewer-close").addEventListener("click", () => viewer.close());
+		viewer.addEventListener("click", (event) => {
+			// 画像の外側（背景）を押したら閉じる。dialog 自身がその当たり判定になる。
+			if (event.target === viewer) viewer.close();
+		});
+		// 閉じたら画像を外す。次に別の1枚を開いたとき、前の画像が一瞬見えるのを防ぐ。
+		viewer.addEventListener("close", () => viewerImg.removeAttribute("src"));
 
 		/* ---- 予定 ---- */
 
@@ -981,8 +1414,34 @@
 			}
 		}
 
-		refresh();
-		setInterval(refresh, 5000);
+		async function refreshNow() {
+			// 前の問い合わせが返る前に次を投げない。MagicMirror が止まっていると応答が
+			// タイムアウト（5秒）まで返らず、更新間隔と重なって要求が溜まる。
+			if (nowPending) return;
+			nowPending = true;
+			try {
+				updateNow(await callApi("/api/slideshow/now"));
+			} catch (error) {
+				showNowError(`MagicMirror が動いていない可能性があります（${error.message}）`);
+			} finally {
+				nowPending = false;
+			}
+		}
+
+		// 画面の状態と表示中の画像は別々に取りに行く。片方が詰まっても、もう片方は動く。
+		function refreshAll() {
+			refresh();
+			refreshNow();
+		}
+
+		// 背面に回ったタブでは、ブラウザが定期実行を止める。前面へ戻したときに
+		// 古い表示のまま5秒待たせないよう、その場で取り直す。
+		document.addEventListener("visibilitychange", () => {
+			if (!document.hidden) refreshAll();
+		});
+
+		refreshAll();
+		setInterval(refreshAll, 5000);
 	</script>
 </body>
 </html>

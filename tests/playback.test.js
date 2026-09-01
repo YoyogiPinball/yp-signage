@@ -290,3 +290,18 @@ test("画像の増減と restart は失敗記録を消す", () => {
 	playback.restart();
 	assert.equal(playback.markBroken("a.jpg").allBroken, false);
 });
+
+test("position は1始まりで進み、画像が無いときは0を返す", () => {
+	const playback = sequential();
+	// リモコンに「1 / 3 枚目」と出すための値。0始まりのまま出すと最後の1枚で
+	// 「2 / 3」と表示され、見ている人には1枚ずれて見える。
+	assert.equal(playback.position(), 0);
+	playback.setImages(["1.jpg", "2.jpg", "3.jpg"]);
+	assert.equal(playback.position(), 1);
+	playback.advance();
+	assert.equal(playback.position(), 2);
+	playback.step(-1);
+	assert.equal(playback.position(), 1);
+	playback.setImages([]);
+	assert.equal(playback.position(), 0);
+});

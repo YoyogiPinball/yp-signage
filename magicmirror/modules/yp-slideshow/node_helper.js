@@ -30,11 +30,61 @@ const LABELS = {
 };
 const NO_LABEL = "      "; // ラベル無しの桁合わせ（日本語2文字＋括弧＝表示幅6）
 
+// リモコンへ渡す縮小画像の大きさ。フロント（yp-slideshow.js）が canvas で作る。
+const SHOT_SIZES = new Set(["thumb", "preview"]);
+
+// フロントから届く data URL を、そのまま返せる画像データに直す。想定した形以外は
+// 捨てる（受け取った文字列をファイル名やパスとして扱う経路は作らない）。
+function decodeJpegDataUrl(value) {
+	const matched = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(value || ""));
+	return matched ? Buffer.from(matched[1], "base64") : null;
+}
+
+// 表示履歴を JSON で返すときの1件分。画像データは重いので載せず、あるかどうかだけ伝える。
+function publicEntry(entry) {
+	return {
+		time: entry.time,
+		file: entry.file,
+		reason: entry.reason,
+		position: entry.position,
+		total: entry.total,
+		hasShot: Boolean(entry.thumb),
+	};
+}
+
 module.exports = NodeHelper.create({
 	start() {
 		this.routeDir = null;
 		this.logPath = DEFAULT_LOG; // config で上書きされるまでは既定の置き場所を使う
 		this.recent = []; // 表示履歴（末尾が最新）。MM 再起動で空に戻る
+		// 表示履歴を JSON で返す。リモコン（signage-timer）が「いま出ている画像の名前」を
+		// 引くための口。ログファイルを読ませないのは、あちらの書式が目視用で、
+		// 何枚目かのようなメモリ側にしかない値を渡せないため。
+		// ipWhitelist(127.0.0.1) の内側なので、外から直接は届かない。
+		this.expressApp.get("/yp-slideshow/now", (req, res) => {
+			// 末尾が最新。新しい順の並べ替えは、表示する側（リモコン）に任せる。
+			const recent = this.recent.map(publicEntry);
+			res.json({
+				ok: true,
+				current: recent.length > 0 ? recent[recent.length - 1] : null,
+				recent,
+			});
+		});
+		// 縮小画像を返す。ディスクは一切触らず、直近10件として実際に画面へ出した画像の
+		// メモリ上の縮小版から探すだけなので、file に何を書かれてもパスとして解釈されない。
+		this.expressApp.get("/yp-slideshow/shot", (req, res) => {
+			const size = SHOT_SIZES.has(req.query.size) ? req.query.size : "thumb";
+			const found = this.recent.find((entry) => entry.file === String(req.query.file || ""));
+			const image = found ? found[size] : null;
+			if (!image) {
+				return res.status(404).json({ ok: false, error: "縮小画像がありません" });
+			}
+			res.set("Content-Type", "image/jpeg");
+			// 同じファイル名と大きさなら中身は変わらない。画像を差し替えたときに
+			// 古い版を長く抱えないよう、期限は短くしておく。
+			res.set("Cache-Control", "private, max-age=300");
+			res.send(image);
+		});
 		// 外部からスライドショーを操作する制御エンドポイント。
 		// `curl localhost:8080/yp-slideshow/control/next` のように叩くと、その cmd を
 		// フロント(yp-slideshow.js)へ内部通知し、pause/resume/next/prev を実行させる。
@@ -96,10 +146,20 @@ module.exports = NodeHelper.create({
 
 	// 表示中の画像を時刻付きで r5-now.log に書き出す。直近ぶんをメモリに持って毎回
 	// 全部書き直す（追記して後から切り詰めるより単純で、ファイルが育たない）。
-	recordNow(url, reason) {
+	recordNow({ url, reason, position, total }) {
 		if (!url) return;
 		const time = new Date().toTimeString().slice(0, 8);
-		this.recent.push({ time, file: this.toFile(url), label: LABELS[reason] || "" });
+		// position / total はリモコンへ返す JSON でだけ使う。ログの書式は変えない
+		// （目視で `cat` する前提の並びなので、桁数の増減で読みづらくしない）。
+		// 種別はラベル文字列ではなく素の reason で持つ。ログの見出し（[次へ] など）は
+		// 書き出すときに引き、リモコン側は reason で色分けできるようにする。
+		this.recent.push({
+			time,
+			file: this.toFile(url),
+			reason: LABELS[reason] ? reason : "",
+			position: Number(position) || 0,
+			total: Number(total) || 0,
+		});
 		if (this.recent.length > NOW_KEEP) this.recent = this.recent.slice(-NOW_KEEP);
 		this.writeNow();
 	},
@@ -112,15 +172,28 @@ module.exports = NodeHelper.create({
 		const file = this.toFile(url);
 		for (let i = this.recent.length - 1; i >= 0; i--) {
 			if (this.recent[i].file === file) {
-				this.recent[i].label = LABELS.broken;
+				this.recent[i].reason = "broken";
 				this.writeNow();
 				return;
 			}
 		}
 	},
 
+	// 縮小画像を、対応する履歴の行へ結びつける。行が押し出された後に届いた分は捨てる。
+	storeShots({ url, thumb, preview }) {
+		if (!url) return;
+		const file = this.toFile(url);
+		for (let i = this.recent.length - 1; i >= 0; i--) {
+			if (this.recent[i].file === file) {
+				this.recent[i].thumb = decodeJpegDataUrl(thumb);
+				this.recent[i].preview = decodeJpegDataUrl(preview);
+				return;
+			}
+		}
+	},
+
 	writeNow() {
-		const body = this.recent.map((r) => `${r.time}  ${r.label || NO_LABEL}  ${r.file}`).join("\n");
+		const body = this.recent.map((r) => `${r.time}  ${LABELS[r.reason] || NO_LABEL}  ${r.file}`).join("\n");
 		try {
 			// 置き場所のフォルダごと作る。既定は ~/signage/ で、画像を置く前の環境には
 			// まだ存在しない。無いまま書こうとすると画像が切り替わるたびに ENOENT が出る。
@@ -147,7 +220,11 @@ module.exports = NodeHelper.create({
 			return;
 		}
 		if (notification === "YP_SLIDESHOW_NOW") {
-			this.recordNow(payload.url, payload.reason);
+			this.recordNow(payload);
+			return;
+		}
+		if (notification === "YP_SLIDESHOW_SHOTS") {
+			this.storeShots(payload);
 			return;
 		}
 		if (notification === "YP_SLIDESHOW_BROKEN") {

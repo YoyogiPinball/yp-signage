@@ -255,6 +255,9 @@ function createPlayback(options = {}) {
 		current,
 		status: () => playbackStatus,
 		size: () => order.length,
+		// いま何枚目か（1始まり。画像が無いときは 0）。リモコンに「1180 / 2442」と
+		// 出すためだけの値で、再生の判断には使わない。シャッフル中はこの巡での位置。
+		position: () => (order.length === 0 ? 0 : index + 1),
 		orderMode: () => selectedOrderMode,
 		repeatMode: () => selectedRepeatMode,
 		revision: () => revisionNumber,
