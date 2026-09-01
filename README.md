@@ -230,7 +230,7 @@ ssh signage 'SHOT_CONNECTOR=HDMI-2 bash ~/run/mm-shot.sh'  # モニタを指定�
 Webリモコンでは、画面とスライドショーの操作に加え、曜日ごとの点灯予定も編集できます。
 
 <p align="center">
-  <img src="docs/remote-control.png" alt="Webリモコンの操作画面。画面の点灯と消灯、スライドショーの前後移動や一時停止を操作できる" width="360">
+  <img src="docs/remote-control.png" alt="Webリモコンの操作画面。画面の点灯と消灯、スライドショーの操作に加え、いま出ている画像のファイル名と縮小画像、直近10枚の履歴が並ぶ" width="360">
   <img src="docs/remote-schedule.png" alt="Webリモコンの予定編集画面。曜日ごとに点灯する時間帯を編集できる" width="360">
 </p>
 
