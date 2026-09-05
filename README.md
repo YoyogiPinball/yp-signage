@@ -1,4 +1,4 @@
-> 最終更新: 2026-08-24（Mon）
+> 最終更新: 2026-09-04（Fri）
 
 # yp-signage
 
@@ -376,6 +376,24 @@ Tailscaleが必要なのは、別の端末からWebリモコンを開く場合�
 ./sync-images.sh --dry-run   # 何が転送・削除されるかだけ表示する
 ./sync-images.sh             # 実行
 ```
+
+### 同期の記録
+
+実行するたびに、操作元の `~/.local/state/yp-signage/logs/sync-images-<日付>.log` へ記録します。
+転送したファイル名と、退避したファイル名を 1 行ずつ全部残します。ファイルは実行日ごとに分かれ、
+30 日より古いものは次回の実行時に自動で消えます。
+
+```bash
+# 今日の記録を見る
+cat ~/.local/state/yp-signage/logs/sync-images-$(date +%F).log
+
+# 直近 3 日ぶんをまとめて見る
+ls -t ~/.local/state/yp-signage/logs/ | head -3 | tac | \
+  xargs -I{} cat ~/.local/state/yp-signage/logs/{}
+```
+
+つながらなかったときは `ssh:` で始まる行に ssh のエラーがそのまま残ります。
+表示機の電源断・操作元のネットワーク未接続・鍵の不一致は、この行でしか区別できません。
 
 自動実行したい場合は、操作元の systemd user timer から呼んでください。ユニットは環境ごとに異なるため
 同梱していません。`Persistent=true` を付けておくと、指定時刻に PC が落ちていても次の起動直後に取り戻します

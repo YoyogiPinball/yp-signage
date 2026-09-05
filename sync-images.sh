@@ -15,8 +15,9 @@ SUBDIR=slides             # 表示機側 ~/signage/<SUBDIR>/
 TRASH=.trash              # 表示機側 ~/signage/<TRASH>/<日付>/
 TRASH_KEEP_DAYS=30
 STATE="$HOME/.local/state/yp-signage"
-LOG="$STATE/sync-images.log"
+LOGDIR="$STATE/logs"
 LOCK="$STATE/sync-images.lock"
+LOG_KEEP_DAYS=30
 
 # 同期ペア「手元の元パス|表示機側のフォルダ名」。表示機では ~/signage/slides/<フォルダ名>/ になる。
 # 下は例で、実際の値は signage.conf に書く（gitignore 済み。ひな形は signage.conf.example）。
@@ -43,7 +44,15 @@ fi
 DRY=()
 [ "${1:-}" = "--dry-run" ] && DRY=(--dry-run)
 
-mkdir -p "$STATE"
+mkdir -p "$LOGDIR"
+# ログは実行日ごとに分ける。日付は開始時に一度だけ決めるので、日付をまたぐ長い同期でも
+# 1 回分の記録が 2 ファイルに割れない。
+LOG="$LOGDIR/sync-images-$(date +%F).log"
+# 古い世代を捨てる。日付名のファイルだけを対象にして、手で置いた控えを巻き込まない。
+find "$LOGDIR" -maxdepth 1 -type f \
+	-name 'sync-images-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log' \
+	-mtime +$LOG_KEEP_DAYS -delete 2>/dev/null || true
+
 # 記録の正本は $LOG。標準出力へは端末から手で叩いたときだけ出す。
 # systemd 経由で stdout を journald へ流すと、この環境では短命サービスの出力が
 # 取りこぼされ「一部の行だけ残る」中途半端な記録になり、誤読を招くため。
@@ -87,10 +96,35 @@ RSYNC_OPTS=(
 )
 
 # 表示機のホームは環境によって変わるので決め打ちしない。ここで疎通確認も兼ねる。
-if ! REMOTE_HOME=$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" 'echo "$HOME"' 2>/dev/null); then
-	log_err "abort: $HOST へ接続できない（電源断・ネットワーク断）。次回に持ち越す"
+#
+# 1 回で諦めない。このタイマーは Persistent=true で「寝ている間に過ぎた実行時刻」を
+# 取り戻すため、操作元がスリープから復帰した直後に発火する。その瞬間はまだ Wi-Fi が
+# 繋がっておらず、1 回だけの確認では即失敗して次の機会が翌日まで来ない。
+# 繋がるのを待つほうが直接的なので、通るまで一定間隔で試す。
+#
+# ssh の stderr は捨てない。「表示機の電源断」「操作元のネットワーク未接続」「鍵の不一致」は
+# このメッセージでしか区別できず、捨てると後から原因を追えなくなる。
+SSH_TRIES=10
+SSH_WAIT=30
+SSH_ERR=$(mktemp)
+REMOTE_HOME=""
+for ((i = 1; i <= SSH_TRIES; i++)); do
+	if REMOTE_HOME=$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" 'echo "$HOME"' 2>"$SSH_ERR"); then
+		[ "$i" -gt 1 ] && log "  $HOST へ接続できた（${i} 回目）"
+		break
+	fi
+	REMOTE_HOME=""
+	# 1 回目の失敗だけ記録する。10 回ぶん並べても読む側の情報は増えない。
+	[ "$i" -eq 1 ] && log "  $HOST へ接続できない。${SSH_WAIT} 秒おきに最大 ${SSH_TRIES} 回まで待つ"
+	[ "$i" -lt "$SSH_TRIES" ] && sleep "$SSH_WAIT"
+done
+if [ -z "$REMOTE_HOME" ]; then
+	log_err "abort: $HOST へ接続できない（${SSH_TRIES} 回試行）。次回に持ち越す"
+	while IFS= read -r line; do log_err "      ssh: $line"; done <"$SSH_ERR"
+	rm -f "$SSH_ERR"
 	exit 0
 fi
+rm -f "$SSH_ERR"
 
 STAMP=$(date +%F)
 FAILED=0
@@ -115,9 +149,10 @@ for pair in "${PAIRS[@]}"; do
 		GONE=$(grep -c '^\*deleting' "$OUT" || true)
 		TOUCH=$(grep -c '^\.f' "$OUT" || true)
 		log "  [$NAME] 転送 $SENT / 削除 $GONE / 時刻のみ修正 $TOUCH"
-		if [ "$GONE" -gt 0 ]; then
-			grep '^\*deleting' "$OUT" | sed 's/^/      退避: /' >>"$LOG"
-		fi
+		# itemize の行は「11 文字の変更コード + 空白 + パス」の形。先頭 12 文字を落として
+		# 名前だけ残す。空白で切ると、名前に空白を含むファイルが途中で切れる。
+		while IFS= read -r line; do log "      転送: ${line:12}"; done < <(grep '^<f' "$OUT" || true)
+		while IFS= read -r line; do log "      退避: ${line:12}"; done < <(grep '^\*deleting' "$OUT" || true)
 	else
 		log_err "  [$NAME] 失敗 (rsync 終了コード $?)"
 		sed 's/^/      /' "$OUT" | tail -20 >>"$LOG"
