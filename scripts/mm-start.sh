@@ -38,6 +38,8 @@ for v in "${OVERRIDABLE[@]}"; do
 done
 
 # Electron を X11(XWayland) 固定で常駐起動。WAYLAND_DISPLAY を空にして Wayland を掴ませない。
+# GNOME/XWayland の再起動後に Electron が表示倍率を 2 と誤認することがあるため、
+# サイネージ用の論理解像度 (1080x1920) と同じ倍率 1 に固定する。
 systemd-run --user \
 	--unit=magicmirror \
 	--description="MagicMirror signage" \
@@ -46,7 +48,7 @@ systemd-run --user \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
 	"${EXTRA_ENV[@]}" \
-	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --disable-http-cache
+	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --force-device-scale-factor=1 --disable-http-cache
 
 echo "MagicMirror起動（user service: magicmirror）"
 echo "  ログ:   journalctl --user -u magicmirror -f"
