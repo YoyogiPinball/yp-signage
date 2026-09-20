@@ -9,6 +9,7 @@
 # 載っている変数だけが対象で、それ以外は ~/MagicMirror/.env を書き換えて変える。
 #   例: SIGNAGE_DEMO=true bash ~/run/mm-start.sh
 #       SIGNAGE_OSHI_COLS=3 bash ~/run/mm-start.sh
+#       SIGNAGE_DEVICE_SCALE_FACTOR=1.25 bash ~/run/mm-start.sh
 # 指定された変数だけを渡すのが要点。空文字で渡すと「変数が存在する」扱いになり、
 # 既存の環境変数を上書きしない process.loadEnvFile() の仕様で .env 側の値が読まれなくなる。
 set -e
@@ -17,6 +18,16 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 DISPLAY_ID="${DISPLAY:-:0}"
 XAUTH="$(ls /run/user/"$(id -u)"/.mutter-Xwaylandauth.* 2>/dev/null | head -1)"
+
+# Electron の倍率はアプリ起動前に Chromium の引数へ渡す必要があるため、config.js ではなく
+# ここで .env を読む。ファイル自体は source せず、正の数だけを設定値として受け付ける。
+DEVICE_SCALE_FACTOR="${SIGNAGE_DEVICE_SCALE_FACTOR:-}"
+if [ -z "$DEVICE_SCALE_FACTOR" ] && [ -f "$HOME/MagicMirror/.env" ]; then
+	DEVICE_SCALE_FACTOR="$(sed -n 's/^[[:space:]]*SIGNAGE_DEVICE_SCALE_FACTOR[[:space:]]*=[[:space:]]*\([0-9][0-9.]*\)[[:space:]]*\(#.*\)\?$/\1/p' "$HOME/MagicMirror/.env" | tail -1)"
+fi
+if [[ ! "$DEVICE_SCALE_FACTOR" =~ ^(0\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(\.[0-9]+)?)$ ]]; then
+	DEVICE_SCALE_FACTOR=1
+fi
 
 # 既存を停止（サービス版・旧nohup版どちらも）
 systemctl --user stop magicmirror.service 2>/dev/null || true
@@ -39,7 +50,7 @@ done
 
 # Electron を X11(XWayland) 固定で常駐起動。WAYLAND_DISPLAY を空にして Wayland を掴ませない。
 # GNOME/XWayland の再起動後に Electron が表示倍率を 2 と誤認することがあるため、
-# サイネージ用の論理解像度 (1080x1920) と同じ倍率 1 に固定する。
+# .env で指定した倍率（未設定・不正値なら 1）に固定する。
 systemd-run --user \
 	--unit=magicmirror \
 	--description="MagicMirror signage" \
@@ -48,7 +59,7 @@ systemd-run --user \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
 	"${EXTRA_ENV[@]}" \
-	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --force-device-scale-factor=1 --disable-http-cache
+	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --force-device-scale-factor="$DEVICE_SCALE_FACTOR" --disable-http-cache
 
 echo "MagicMirror起動（user service: magicmirror）"
 echo "  ログ:   journalctl --user -u magicmirror -f"
