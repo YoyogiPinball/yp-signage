@@ -10,6 +10,7 @@
 #   例: SIGNAGE_DEMO=true bash ~/run/mm-start.sh
 #       SIGNAGE_OSHI_COLS=3 bash ~/run/mm-start.sh
 #       SIGNAGE_DEVICE_SCALE_FACTOR=1.25 bash ~/run/mm-start.sh
+#       SIGNAGE_MONITOR=HDMI-1 bash ~/run/mm-start.sh
 # 指定された変数だけを渡すのが要点。空文字で渡すと「変数が存在する」扱いになり、
 # 既存の環境変数を上書きしない process.loadEnvFile() の仕様で .env 側の値が読まれなくなる。
 set -e
@@ -17,7 +18,12 @@ set -e
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 DISPLAY_ID="${DISPLAY:-:0}"
-XAUTH="$(ls /run/user/"$(id -u)"/.mutter-Xwaylandauth.* 2>/dev/null | head -1)"
+# shellcheck source=mm-display.sh
+. "$(dirname "$0")/mm-display.sh"
+if ! XAUTH="$(signage_xauth "$DISPLAY_ID")"; then
+	echo "エラー: 画面 $DISPLAY_ID に接続できません。GNOME にログインしているか確認してください" >&2
+	exit 1
+fi
 
 # Electron の倍率はアプリ起動前に Chromium の引数へ渡す必要があるため、config.js ではなく
 # ここで .env を読む。ファイル自体は source せず、正の数だけを設定値として受け付ける。
@@ -28,6 +34,21 @@ fi
 if [[ ! "$DEVICE_SCALE_FACTOR" =~ ^(0\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(\.[0-9]+)?)$ ]]; then
 	DEVICE_SCALE_FACTOR=1
 fi
+
+# 出すモニターも窓を作る前に決める必要があるため、ここで .env を読む。
+# 止める前に決めておき、見つからなければ動いているサイネージを止めずに終える。
+MONITOR="${SIGNAGE_MONITOR:-}"
+if [ -z "$MONITOR" ] && [ -f "$HOME/MagicMirror/.env" ]; then
+	MONITOR="$(sed -n 's/^[[:space:]]*SIGNAGE_MONITOR[[:space:]]*=[[:space:]]*\([A-Za-z0-9_-]*\)[[:space:]]*\(#.*\)\?$/\1/p' "$HOME/MagicMirror/.env" | tail -1)"
+fi
+if ! TARGET="$(DISPLAY="$DISPLAY_ID" XAUTHORITY="$XAUTH" signage_monitor "${MONITOR:-auto}")"; then
+	exit 1
+fi
+# Electron の座標は XWayland の画素を倍率で割った値になる。窓が隣の画面へはみ出さないよう、
+# 位置は切り上げ、大きさは切り捨てる。
+read -r TARGET_NAME WINDOW_X WINDOW_Y WINDOW_W WINDOW_H < <(echo "$TARGET" | awk -v f="$DEVICE_SCALE_FACTOR" '
+	function up(v) { return (v / f == int(v / f)) ? v / f : int(v / f) + 1 }
+	{ print $1, up($2), up($3), int($4 / f), int($5 / f) }')
 
 # 既存を停止（サービス版・旧nohup版どちらも）
 systemctl --user stop magicmirror.service 2>/dev/null || true
@@ -58,10 +79,14 @@ systemd-run --user \
 	--setenv=DISPLAY="$DISPLAY_ID" \
 	--setenv=XAUTHORITY="$XAUTH" \
 	--setenv=WAYLAND_DISPLAY= \
+	--setenv=SIGNAGE_WINDOW_X="$WINDOW_X" \
+	--setenv=SIGNAGE_WINDOW_Y="$WINDOW_Y" \
+	--setenv=SIGNAGE_WINDOW_WIDTH="$WINDOW_W" \
+	--setenv=SIGNAGE_WINDOW_HEIGHT="$WINDOW_H" \
 	"${EXTRA_ENV[@]}" \
 	"$HOME/MagicMirror/node_modules/.bin/electron" js/electron.js --ozone-platform=x11 --force-device-scale-factor="$DEVICE_SCALE_FACTOR" --disable-http-cache
 
-echo "MagicMirror起動（user service: magicmirror）"
+echo "MagicMirror起動（user service: magicmirror）→ $TARGET_NAME"
 echo "  ログ:   journalctl --user -u magicmirror -f"
 echo "  状態:   systemctl --user status magicmirror"
 echo "  止める: bash ~/run/mm-stop.sh"

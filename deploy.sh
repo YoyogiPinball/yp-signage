@@ -7,6 +7,8 @@
 # 配布先は ssh の設定名（~/.ssh/config の Host 名）で指定する。鍵認証を通しておくこと。
 # 毎回書かずに済ませたいときは signage.conf に置く（gitignore 済み。ひな形は signage.conf.example）。
 #   SIGNAGE_HOST=mysignage ./deploy.sh
+# 表示機と操作元が同じ PC なら local を指定する（ssh を使わずにコピーする）。
+#   SIGNAGE_HOST=local ./deploy.sh
 #
 # ターゲット式を残しているのは、配布単位を分けたくなったときに
 # deploy_<名前>() を書いて case に1行足すだけで済むようにするため。
@@ -23,7 +25,24 @@ if [ -z "$HOST" ]; then
 	echo "  1) $ROOT/signage.conf に SIGNAGE_HOST_DEFAULT=\"<ssh の設定名>\" を書く" >&2
 	echo "     （$ROOT/signage.conf.example をコピーして使う）" >&2
 	echo "  2) SIGNAGE_HOST=<ssh の設定名> ./deploy.sh のように渡す" >&2
+	echo "  表示機と操作元が同じ PC なら、ssh の設定名の代わりに local と書く" >&2
 	exit 1
+fi
+
+# 表示機で実行する・表示機へ置く。local は表示機と操作元が同じ PC の場合で、ssh を使わずに済ませる。
+# 置き先は表示機のホームから見たパスを '~/...' のまま受け取る（ssh 先で展開させるのと同じ扱い）。
+if [ "$HOST" = "local" ]; then
+	on_host() { bash -c "$1"; }
+	put() {
+		local dst="${*: -1}"
+		cp "${@:1:$#-1}" "${dst/#\~/$HOME}"
+	}
+else
+	on_host() { ssh "$HOST" "$1"; }
+	put() {
+		local dst="${*: -1}"
+		scp -q "${@:1:$#-1}" "$HOST:$dst"
+	}
 fi
 
 deploy_signage() {
@@ -31,42 +50,53 @@ deploy_signage() {
 	local MM="$ROOT/magicmirror"
 
 	# --- 起動・停止スクリプト ---
-	ssh "$HOST" 'mkdir -p ~/run'
-	scp -q "$D/mm-start.sh" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/signage-display-on.sh" "$D/README.md" "$HOST":'~/run/'
-	ssh "$HOST" 'chmod +x ~/run/*.sh ~/run/*.py'
+	on_host 'mkdir -p ~/run'
+	put "$D/mm-start.sh" "$D/mm-display.sh" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/signage-display-on.sh" "$D/README.md" '~/run/'
+	on_host 'chmod +x ~/run/*.sh ~/run/*.py'
 
 	# --- MagicMirror 設定・モジュール ---
-	ssh "$HOST" 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/yp-slideshow ~/MagicMirror/modules/yp-oshical ~/MagicMirror/modules/yp-monthcal ~/MagicMirror/modules/yp-demoweather ~/MagicMirror/css ~/MagicMirror/samples'
-	scp -q "$MM/config.js" "$HOST":'~/MagicMirror/config/config.js'
-	scp -q "$MM/css/custom.css" "$HOST":'~/MagicMirror/css/custom.css'
-	# 設定値と秘密情報は .env にまとめてある。config.js は process.loadEnvFile() で
-	# 「カレントディレクトリの .env」を読むため、config/ ではなく MagicMirror のルートへ置く
-	# （MM は自身のルートを cwd にして起動する）。置き場所を間違えると全項目が既定値に落ちる。
-	if [ -f "$MM/.env" ]; then
-		scp -q "$MM/.env" "$HOST":'~/MagicMirror/.env'
-	else
-		echo "警告: $MM/.env が無い（カレンダーと天気が出なくなる）。.env.example を参照して作成を"
-	fi
+	on_host 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/yp-slideshow ~/MagicMirror/modules/yp-oshical ~/MagicMirror/modules/yp-monthcal ~/MagicMirror/modules/yp-demoweather ~/MagicMirror/css ~/MagicMirror/samples'
+	put "$MM/config.js" '~/MagicMirror/config/config.js'
+	put "$MM/css/custom.css" '~/MagicMirror/css/custom.css'
+	# 設定値と秘密情報の .env は表示機側だけに置き、配布では上書きしない。
+	# 倍率や出力先のように表示機ごとに決まる値を持つため、手元の写しで消さない。
+	# 無いときだけひな形を置く。config.js は process.loadEnvFile() で「カレントディレクトリの .env」を
+	# 読むため、config/ ではなく MagicMirror のルートへ置く（MM は自身のルートを cwd にして起動する）。
+	# 有無の確認と書き込みを表示機側の1回の実行で済ませ、接続の失敗を「.env が無い」と取り違えない。
+	on_host 'if [ -e ~/MagicMirror/.env ]; then
+			echo "  ~/MagicMirror/.env は表示機側の内容を残しました"
+		else
+			cat > ~/MagicMirror/.env
+			echo "  ~/MagicMirror/.env が無かったのでひな形を置きました。表示機で中身を書いてください"
+		fi' < "$MM/.env.example"
 	# playback.js は再生モードの状態機械。front と node_helper の両方が読むので必ず一緒に配る
 	# （これだけ古いと、モード変更や末尾の挙動が画面とテストで食い違う）。
-	scp -q "$MM/modules/yp-slideshow/yp-slideshow.js" "$MM/modules/yp-slideshow/node_helper.js" "$MM/modules/yp-slideshow/playback.js" "$MM/modules/yp-slideshow/yp-slideshow.css" "$HOST":'~/MagicMirror/modules/yp-slideshow/'
-	scp -q "$MM/modules/yp-oshical/yp-oshical.js" "$MM/modules/yp-oshical/node_helper.js" "$MM/modules/yp-oshical/yp-oshical.css" "$HOST":'~/MagicMirror/modules/yp-oshical/'
-	scp -q "$MM/modules/yp-monthcal/yp-monthcal.js" "$MM/modules/yp-monthcal/yp-monthcal.css" "$MM/modules/yp-monthcal/holidays.js" "$HOST":'~/MagicMirror/modules/yp-monthcal/'
-	scp -q "$MM/modules/yp-demoweather/yp-demoweather.js" "$MM/modules/yp-demoweather/yp-demoweather.css" "$HOST":'~/MagicMirror/modules/yp-demoweather/'
+	put "$MM/modules/yp-slideshow/yp-slideshow.js" "$MM/modules/yp-slideshow/node_helper.js" "$MM/modules/yp-slideshow/playback.js" "$MM/modules/yp-slideshow/yp-slideshow.css" '~/MagicMirror/modules/yp-slideshow/'
+	put "$MM/modules/yp-oshical/yp-oshical.js" "$MM/modules/yp-oshical/node_helper.js" "$MM/modules/yp-oshical/yp-oshical.css" '~/MagicMirror/modules/yp-oshical/'
+	put "$MM/modules/yp-monthcal/yp-monthcal.js" "$MM/modules/yp-monthcal/yp-monthcal.css" "$MM/modules/yp-monthcal/holidays.js" '~/MagicMirror/modules/yp-monthcal/'
+	put "$MM/modules/yp-demoweather/yp-demoweather.js" "$MM/modules/yp-demoweather/yp-demoweather.css" '~/MagicMirror/modules/yp-demoweather/'
 
 	# デモモード（SIGNAGE_DEMO=true）が見る背景画像。MagicMirror のルート直下に置く。
 	# モジュール側は global.root_path から samples/ を解決するので、この場所が前提になる。
-	scp -q "$ROOT/samples/"*.jpg "$ROOT/samples/README.md" "$HOST":'~/MagicMirror/samples/'
+	put "$ROOT/samples/"*.jpg "$ROOT/samples/README.md" '~/MagicMirror/samples/'
 
 	# --- 画面タイマー・リモコン（常駐サービス） ---
 	# フォルダ単位で送る。ファイルを1つ足すたびにここを直すと、配り忘れで
 	# 「配布したのに動きが変わらない」という分かりにくい壊れ方になる。
-	ssh "$HOST" 'mkdir -p ~/run/signage-timer ~/.config/systemd/user'
-	scp -q "$D/signage-timer/"* "$HOST":'~/run/signage-timer/'
-	scp -q "$ROOT/host/systemd/signage-timer.service" "$HOST":'~/.config/systemd/user/signage-timer.service'
+	on_host 'mkdir -p ~/run/signage-timer ~/.config/systemd/user'
+	put "$D/signage-timer/"* '~/run/signage-timer/'
+	put "$ROOT/host/systemd/signage-timer.service" '~/.config/systemd/user/signage-timer.service'
+	# 同じ PC で使うときは画面の点灯・消灯を既定で切る。Mutter の PowerSaveMode は全画面に効き、
+	# 作業中のモニターまで消えるため。timer.env に書いた値はこれより優先される（EnvironmentFile= が勝つ）。
+	if [ "$HOST" = "local" ]; then
+		on_host 'mkdir -p ~/.config/systemd/user/signage-timer.service.d
+			printf "[Service]\nEnvironment=SIGNAGE_DISPLAY_CONTROL=false\n" > ~/.config/systemd/user/signage-timer.service.d/local.conf'
+	else
+		on_host 'rm -f ~/.config/systemd/user/signage-timer.service.d/local.conf'
+	fi
 	# ユニットを置き換えたら読み直させる。動いている最中なら入れ替える。
 	# 有効化していない環境では触らない（勝手に常駐させない）。
-	ssh "$HOST" 'systemctl --user daemon-reload
+	on_host 'systemctl --user daemon-reload
 		if systemctl --user is-enabled --quiet signage-timer.service 2>/dev/null; then
 			systemctl --user restart signage-timer.service
 			echo "  画面タイマーを入れ替えました"

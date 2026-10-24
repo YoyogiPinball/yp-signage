@@ -1,5 +1,3 @@
-> 最終更新: 2026-08-07（Fri）00:30
-
 # ~/run — 表示機側に置く実行スクリプト
 
 このフォルダの中身は `deploy.sh` が表示機の `~/run/` へ配布する。表示機で操作するときは、
@@ -8,6 +6,7 @@
 | スクリプト | 何をするか |
 |---|---|
 | `mm-start.sh` | MagicMirror を起動する。ssh 越しに起動しても死なないよう `systemd-run --user` で常駐させる |
+| `mm-display.sh` | 出すモニターを `.env` の `SIGNAGE_MONITOR` から決める。`mm-start.sh` と `mm-shot.sh` が読み込む関数の置き場で、単体では実行しない |
 | `mm-stop.sh` | 停止する |
 | `mm-ctl.sh` | スライドショーを操作する（下記） |
 | `mm-shot.sh` | 実際に映っている画面を1枚 PNG に撮る（`mm-shot.py` が実体） |

@@ -105,14 +105,14 @@ let config = {
 	timeFormat: 24,
 	units: "metric",
 
-	// Electron 表示オプション：外部モニタ（縦1080x1920）へ全画面表示。
-	// 外部モニタは monitors.xml で論理原点(0,0)固定にしたので x:0。蓋の開閉で位置がぶれない。
-	// 位置は論理座標で決まるため、コネクタ名（HDMI-2 / DP-2 等）には依存しない。
+	// Electron 表示オプション：選んだモニターへ全画面表示。
+	// 位置と大きさは mm-start.sh が .env の SIGNAGE_MONITOR から求めて SIGNAGE_WINDOW_* で渡す。
+	// mm-start.sh を通さずに起動した場合だけ、原点と SIGNAGE_WIDTH / SIGNAGE_HEIGHT に落ちる。
 	electronOptions: {
-		x: 0,
-		y: 0,
-		width: num(env.SIGNAGE_WIDTH, 1080),
-		height: num(env.SIGNAGE_HEIGHT, 1920),
+		x: num(env.SIGNAGE_WINDOW_X, 0),
+		y: num(env.SIGNAGE_WINDOW_Y, 0),
+		width: num(env.SIGNAGE_WINDOW_WIDTH, num(env.SIGNAGE_WIDTH, 1080)),
+		height: num(env.SIGNAGE_WINDOW_HEIGHT, num(env.SIGNAGE_HEIGHT, 1920)),
 		fullscreen: true,
 		autoHideMenuBar: true,
 	},

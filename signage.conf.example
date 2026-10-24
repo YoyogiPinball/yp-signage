@@ -7,6 +7,8 @@
 
 # 配布先。~/.ssh/config の Host 名を書く（鍵認証を通しておくこと）。
 # ここが空だと deploy.sh / sync-images.sh は接続する前に止まる。
+# 表示機と操作元が同じ PC なら local と書く。deploy.sh は ssh を使わずにコピーする
+# （sync-images.sh は local に対応しない。画像は .env の SIGNAGE_IMAGE_DIR で直接指す）。
 SIGNAGE_HOST_DEFAULT=""
 
 # 画像同期のペア「手元の元パス|表示機側のフォルダ名」。

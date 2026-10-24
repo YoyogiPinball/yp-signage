@@ -35,6 +35,20 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# 撮るモニターは mm-start.sh と同じ判定で決める。SHOT_CONNECTOR を渡したときはそちらを使う。
+if [ -z "${SHOT_CONNECTOR:-}" ]; then
+	# shellcheck source=mm-display.sh
+	. "$SCRIPT_DIR/mm-display.sh"
+	MONITOR=""
+	if [ -f "$ENV_FILE" ]; then
+		MONITOR="$(sed -n 's/^[[:space:]]*SIGNAGE_MONITOR[[:space:]]*=[[:space:]]*\([A-Za-z0-9_-]*\)[[:space:]]*\(#.*\)\?$/\1/p' "$ENV_FILE" | tail -1)"
+	fi
+	DISPLAY_ID="${DISPLAY:-:0}"
+	XAUTH="$(signage_xauth "$DISPLAY_ID")" || { echo "エラー: 画面 $DISPLAY_ID に接続できません" >&2; exit 1; }
+	TARGET="$(DISPLAY="$DISPLAY_ID" XAUTHORITY="$XAUTH" signage_monitor "${MONITOR:-auto}")" || exit 1
+	export SHOT_CONNECTOR="${TARGET%% *}"
+fi
+
 SHOT_OUT="$OUT" timeout 30 python3 "$SCRIPT_DIR/mm-shot.py" >/dev/null
 
 if [ -s "$OUT" ]; then

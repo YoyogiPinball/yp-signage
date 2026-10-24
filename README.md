@@ -31,19 +31,26 @@
 
 **以下の構成でのみ検証しています。** 横画面やRaspberry Pi 等での動作は未確認です。
 
+共通の環境は次のとおりです。
+
 | 項目 | 検証している構成 |
 |---|---|
-| 表示機 | ThinkPad X13 Gen1 |
 | OS | Ubuntu 26.04 / GNOME (Wayland) + XWayland |
 | Node.js | 24（MagicMirror² v2.37 が要求するバージョンに従う） |
 | MagicMirror² | v2.37 を `~/MagicMirror/` に導入済み |
-| モニター | HDMI接続した外部モニターを縦置き（1080×1920） |
-| 操作元 | 別マシン（WSL）から ssh・scp で配る |
 
-解像度と表示倍率は `.env` で変更できます。横画面や HiDPI 画面で試す場合も、コードの変更は要りません。
+使い方は2通りで、どちらも検証しています。
 
-> **Note:** 表示機と操作元を分けていますが、同じ機械で完結させても構いません。その場合は
-> `deploy.sh` を使わず、下の「配布先の対応表」のとおりに手でコピーしてください。
+| 使い方 | 表示機 | モニター | 配り方 |
+|---|---|---|---|
+| サイネージ専用の PC | ThinkPad X13 Gen1 | 外部モニター1枚を縦置き（1080×1920） | 別の PC（WSL）から ssh で配る |
+| 作業用 PC の1画面を使う | MSI GF63 Thin | 内蔵画面・横置きの作業用モニター・縦置きのサイネージ用モニターの3枚 | 同じ PC の中でコピーする（`SIGNAGE_HOST=local`） |
+
+出すモニター・解像度・表示倍率は `.env` で変えられます。横画面や HiDPI 画面で試す場合も、コードの変更は要りません。
+
+> **Note:** リモコンの「画面を消す」は、作業中のモニターも含めて全部の画面を消します。
+> そのため `SIGNAGE_HOST=local` で配ると、画面の点灯・消灯は既定で切れた状態になります。
+> サイネージ用のモニターは、モニター本体の電源ボタンか OS の設定で消してください。
 
 すでに動かしているものを更新する場合は、先に [CHANGELOG.md](./CHANGELOG.md) を読んでください。
 何が変わったかと、`.env` の書き換えが要るかどうかを書いてあります。
@@ -58,7 +65,7 @@
 
 ### 2. このリポジトリを取得する
 
-操作元のマシンに clone します（表示機ではありません）。
+操作元のマシンに clone します。表示機と操作元が同じ PC なら、その PC に clone します。
 
 ```bash
 git clone https://github.com/YoyogiPinball/yp-signage.git
@@ -78,27 +85,27 @@ $EDITOR signage.conf     # SIGNAGE_HOST_DEFAULT に ssh の設定名を書く
 `~/.ssh/config` の `Host` 名を書いてください。鍵認証を通しておく必要があります。
 その場限りで変えたいときは `SIGNAGE_HOST=別の名前 ./deploy.sh` でも渡せます（こちらが優先されます）。
 
+表示機と操作元が同じ PC なら、ssh の設定名の代わりに `SIGNAGE_HOST_DEFAULT="local"` と書きます。
+`deploy.sh` は ssh を使わず、同じ PC の中でコピーします。
+
 > **Note:** これ以降の例では、SSH Host 名を `signage` と決めたものとして書いています。
 > 別の名前にした場合は `ssh signage …` の `signage` を読み替えてください。
+> `local` の場合は `ssh signage '…'` を外し、引用符の中のコマンドをそのまま実行してください。
 > `./deploy.sh` と `./sync-images.sh` は `signage.conf` を読むので、読み替えは不要です。
 
 ### 4. まず動かしてみる（デモモード）
 
 自分の画像も iCal も用意しないまま、完成した画面を先に確認できます。**通信は一切しません。**
 
+手順 7〜8（配る → 権限修正）まで進めたら、次のコマンドで起動します。
+
 ```bash
-cp magicmirror/.env.example magicmirror/.env
-sed -i 's/^SIGNAGE_DEMO=false/SIGNAGE_DEMO=true/' magicmirror/.env
+ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'
 ```
 
-この状態のまま手順 7〜9（配る → 権限修正 → 起動）まで進めると、背景は同梱のサンプル画像、
-配信予定はダミーデータが並び、天気は API キー不要のデモ用パネルに差し替わった画面が出ます。
-「入れたのに何も出ない」で詰まる前に、動いている状態を見ておくためのものです。
-
-見終わったら `magicmirror/.env` の `SIGNAGE_DEMO` を `false` に戻し、もう一度配って起動し直してください。
-
-> **Tip:** ファイルを書き換えずに 1 回だけ試すこともできます。
-> `ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'` で起動すれば、その回だけデモになります。
+背景は同梱のサンプル画像、配信予定はダミーデータが並び、天気は API キー不要のデモ用パネルに
+差し替わった画面が出ます。「入れたのに何も出ない」で詰まる前に、動いている状態を見ておくためのものです。
+デモになるのはこの起動の回だけで、`SIGNAGE_DEMO=true` を付けずに起動し直せば元の画面に戻ります。
 
 ### 5. 背景画像を置く
 
@@ -117,12 +124,16 @@ scp samples/*.jpg signage:~/signage/slides/
 秘密情報（iCal URL・API キー）と、環境ごとに変わる値（解像度・表示秒数・緯度経度）は
 `.env` にまとめてあります。`config.js`（150 行の JavaScript）を開かずに設定を変えるためです。
 
-手順 4 で作った `magicmirror/.env` をそのまま編集してください（まだ作っていなければ
-`cp magicmirror/.env.example magicmirror/.env` から）。
+`.env` は表示機の `~/MagicMirror/.env` にだけ置き、表示機の上で直接編集します。
+倍率や出力先のモニターのように表示機ごとに決まる値を持つため、`deploy.sh` は既にある `.env` を上書きしません。
+表示機に `.env` が無いときだけ、配布のついでに `.env.example` をひな形として置きます。
 
 ```bash
-$EDITOR magicmirror/.env
+scp magicmirror/.env.example signage:~/MagicMirror/.env   # 初回だけ
+ssh -t signage 'nano ~/MagicMirror/.env'
 ```
+
+表示機と操作元が同じ PC なら、`~/MagicMirror/.env` をそのまま編集してください。
 
 書式は `KEY=値` だけで、引用符もカンマも要りません。1 行書き損じてもその項目が既定値に落ちるだけで、
 他の設定は生き残ります。項目の一覧と意味は `.env.example` のコメントにすべて書いてあります。
@@ -133,6 +144,15 @@ $EDITOR magicmirror/.env
 
 ```bash
 ssh signage 'SIGNAGE_DEVICE_SCALE_FACTOR=1.25 bash ~/run/mm-start.sh'
+```
+
+`SIGNAGE_MONITOR` はサイネージを出すモニターです。既定の `auto` は、外部モニターのうち縦置きのもの、
+無ければ原点 (0,0) にあるものを選びます。作業用のモニターと並べていて自動で決まらないときは、
+起動時のエラーに出る名前（`DP-1`、`HDMI-1` など）を書いてください。決まらないときは、作業中の画面を
+覆わないように起動を取りやめ、動いているサイネージもそのまま残します。
+
+```bash
+ssh signage 'SIGNAGE_MONITOR=HDMI-1 bash ~/run/mm-start.sh'   # その回だけ別のモニターに出す
 ```
 
 全部空のままでも起動します。その場合、カレンダーと天気のパネルが出ない画面になります。
@@ -297,8 +317,10 @@ systemctl --user enable --now signage-timer
 
 書き換えた設定は、`systemctl --user restart signage-timer` でサービスを再起動すると反映されます。
 
-作業用PCの別モニターへ表示する場合は、起動前に`timer.env`へ`SIGNAGE_DISPLAY_CONTROL=false`を設定してください。
 画面制御が有効な場合、点灯・消灯はGNOMEセッション全体に作用し、作業中のモニターも対象になります。
+そのため`SIGNAGE_HOST=local`で配布すると、`deploy.sh`が`SIGNAGE_DISPLAY_CONTROL=false`を既定にします。
+`timer.env`に`SIGNAGE_DISPLAY_CONTROL=true`と書けば、その既定より優先されます。
+ssh で配る作業用PCの別モニターへ表示する場合は、`timer.env`へ`SIGNAGE_DISPLAY_CONTROL=false`を書いてください。
 無効な場合は画面制御・点灯予定の操作を表示せず、APIへの直接操作も拒否します。開始・終了時も画面の電源状態を変更しません。
 
 ### 表示機の外からリモコンを開く
@@ -387,6 +409,9 @@ Tailscaleが必要なのは、別の端末からWebリモコンを開く場合�
 ./sync-images.sh --dry-run   # 何が転送・削除されるかだけ表示する
 ./sync-images.sh             # 実行
 ```
+
+表示機と操作元が同じ PC なら、同期は要りません。`sync-images.sh` は `local` に対応していないので、
+`.env` の `SIGNAGE_IMAGE_DIR` に画像フォルダの絶対パスを書き、そのフォルダを直接表示してください。
 
 ### 同期の記録
 
@@ -521,7 +546,7 @@ iCal URL や API キーを消しても停止しますが、それだと「次に
 |---|---|
 | `scripts/`（`*.sh` と `mm-shot.py` / `mm-shot.js` / `README.md`） | `~/run/` |
 | `magicmirror/config.js` | `~/MagicMirror/config/config.js` |
-| `magicmirror/.env` | `~/MagicMirror/.env`（`config/` ではなくルート） |
+| `magicmirror/.env.example` | `~/MagicMirror/.env`（`config/` ではなくルート）。表示機に `.env` が無いときだけ置き、既にあれば上書きしない |
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
 | `magicmirror/modules/yp-*/` | `~/MagicMirror/modules/yp-*/` |
 | `samples/` | `~/MagicMirror/samples/`（デモモードが参照する背景画像） |
