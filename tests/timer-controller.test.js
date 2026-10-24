@@ -10,6 +10,34 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+test("画面制御が無効なら開始・再評価・終了でも画面と保存状態に触れない", (t) => {
+	const previous = process.env.SIGNAGE_DISPLAY_CONTROL;
+	process.env.SIGNAGE_DISPLAY_CONTROL = "false";
+	const modulePath = require.resolve("../scripts/signage-timer/index.js");
+	delete require.cache[modulePath];
+	const display = require("../scripts/signage-timer/display.js");
+	const store = require("../scripts/signage-timer/state.js");
+	for (const [object, methods] of [[display, ["readPowerSaveMode", "setPowerSaveMode"]], [store, ["loadState", "saveState"]]]) {
+		for (const method of methods) t.mock.method(object, method, () => assert.fail(method));
+	}
+	t.mock.method(process, "exit", () => {});
+	const controller = require(modulePath);
+	t.after(() => {
+		process.removeListener("SIGTERM", controller.stop);
+		process.removeListener("SIGINT", controller.stop);
+		delete require.cache[modulePath];
+		if (previous === undefined) delete process.env.SIGNAGE_DISPLAY_CONTROL;
+		else process.env.SIGNAGE_DISPLAY_CONTROL = previous;
+	});
+	controller.start();
+	assert.equal(controller.displayControlEnabled, false);
+	assert.equal(controller.reconcile().reason, "disabled");
+	assert.equal(controller.getDecision().reason, "disabled");
+	assert.throws(() => controller.setOverride({ kind: "off-until-on" }), /無効/);
+	assert.throws(() => controller.setSchedule({}), /無効/);
+	controller.stop();
+});
+
 test("明示点灯待ちは外部要因で点灯しても消灯へ戻す", (t) => {
 	const directory = fs.mkdtempSync(path.join(os.tmpdir(), "yp-signage-controller-"));
 	const stateFile = path.join(directory, "timer.json");

@@ -1,5 +1,3 @@
-> 最終更新: 2026-09-20（Sun）16:16
-
 # yp-signage
 
 縦置きの外部モニターに、時計、月間カレンダー、天気、背景スライドショー、推しの配信予定をまとめて表示するサイネージです。
@@ -295,8 +293,13 @@ systemctl --user enable --now signage-timer
 | `SIGNAGE_TIMER_USER` | 操作を許可する Tailscale のログイン名。設定すると、Tailscale Serve を通った同じログイン名の要求だけを受け付けます |
 | `SIGNAGE_TIMER_PORT` | リモコンの待受ポート。既定は `8081` です |
 | `SIGNAGE_TIMER_TZ` | 点灯予定の判定に使う IANA タイムゾーン名。既定は `Asia/Tokyo` です |
+| `SIGNAGE_DISPLAY_CONTROL` | `false`にすると点灯・消灯と自動消灯を無効にし、画像操作と履歴だけを使えます。既定は`true`です |
 
 書き換えた設定は、`systemctl --user restart signage-timer` でサービスを再起動すると反映されます。
+
+作業用PCの別モニターへ表示する場合は、起動前に`timer.env`へ`SIGNAGE_DISPLAY_CONTROL=false`を設定してください。
+画面制御が有効な場合、点灯・消灯はGNOMEセッション全体に作用し、作業中のモニターも対象になります。
+無効な場合は画面制御・点灯予定の操作を表示せず、APIへの直接操作も拒否します。開始・終了時も画面の電源状態を変更しません。
 
 ### 表示機の外からリモコンを開く
 

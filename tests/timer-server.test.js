@@ -108,6 +108,25 @@ function captureResponse() {
 	return captured;
 }
 
+test("画面制御が無効なら状態取得はハードウェアに触れず変更APIを拒否する", async (t) => {
+	await withoutAuth(t, async () => {
+		const display = require("../scripts/signage-timer/display.js");
+		t.mock.method(display, "readPowerSaveMode", () => assert.fail("hardware read"));
+		t.mock.method(display, "readDpms", () => assert.fail("hardware read"));
+		const controller = { displayControlEnabled: false };
+		const { handle } = require("../scripts/signage-timer/server.js");
+		const response = captureResponse();
+		await handle({ method: "GET", url: "/api/status", headers: {}, socket: {} }, response, controller);
+		assert.equal(response.statusCode, 200);
+		assert.equal(JSON.parse(response.body).displayControlEnabled, false);
+		for (const [method, url] of [["POST", "/api/display/on"], ["POST", "/api/display/off"], ["POST", "/api/display/off-until-morning"], ["POST", "/api/display/off-until-on"], ["DELETE", "/api/override"], ["PUT", "/api/schedule"]]) {
+			const rejected = captureResponse();
+			await handle({ method, url, headers: {}, socket: {} }, rejected, controller);
+			assert.equal(rejected.statusCode, 403, url);
+		}
+	});
+});
+
 async function withoutAuth(t, run) {
 	const previousUser = process.env.SIGNAGE_TIMER_USER;
 	const previousPort = process.env.SIGNAGE_PORT;

@@ -5,6 +5,11 @@ const stateStore = require("./state.js");
 const RECONCILE_INTERVAL_MS = 30 * 1000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
 const timeZone = process.env.SIGNAGE_TIMER_TZ || "Asia/Tokyo";
+const displayControlSetting = process.env.SIGNAGE_DISPLAY_CONTROL ?? "true";
+if (!["true", "false"].includes(displayControlSetting)) {
+	throw new Error("SIGNAGE_DISPLAY_CONTROL は true または false にしてください");
+}
+const displayControlEnabled = displayControlSetting === "true";
 
 let currentState = null;
 let intervalTimer = null;
@@ -32,6 +37,7 @@ function scheduleEvaluation(nextEvaluationAt, now) {
 }
 
 function reconcile() {
+	if (!displayControlEnabled) return getDecision();
 	const now = Date.now();
 	const state = getState();
 	const decision = scheduleLogic.decide({
@@ -53,6 +59,7 @@ function reconcile() {
 }
 
 function getDecision() {
+	if (!displayControlEnabled) return { display: null, reason: "disabled", nextEvaluationAt: null };
 	const state = getState();
 	return scheduleLogic.decide({
 		now: Date.now(),
@@ -63,6 +70,7 @@ function getDecision() {
 }
 
 function setOverride(override) {
+	if (!displayControlEnabled) throw new Error("画面制御は無効です");
 	const state = getState();
 	const nextState = { schedule: state.schedule, override };
 	// 保存に失敗したときメモリだけ先行しないよう、永続化してから正本を差し替える。
@@ -72,6 +80,7 @@ function setOverride(override) {
 }
 
 function setSchedule(schedule) {
+	if (!displayControlEnabled) throw new Error("画面制御は無効です");
 	const state = getState();
 	const override = isManualOff(state.override)
 		|| (state.override && state.override.until > Date.now())
@@ -90,19 +99,21 @@ function stop() {
 	if (intervalTimer !== null) clearInterval(intervalTimer);
 	if (evaluationTimer !== null) clearTimeout(evaluationTimer);
 	// サービスを止めた結果だけで永久に黒画面が残らないよう、終了前は必ず点灯を要求する。
-	display.setPowerSaveMode(0);
+	if (displayControlEnabled) display.setPowerSaveMode(0);
 	process.exit(0);
 }
 
 function start() {
-	currentState = stateStore.loadState();
-	reconcile();
-	intervalTimer = setInterval(reconcile, RECONCILE_INTERVAL_MS);
+	if (displayControlEnabled) {
+		currentState = stateStore.loadState();
+		reconcile();
+		intervalTimer = setInterval(reconcile, RECONCILE_INTERVAL_MS);
+	}
 	process.on("SIGTERM", stop);
 	process.on("SIGINT", stop);
 }
 
-module.exports = { reconcile, getState, getDecision, setOverride, setSchedule };
+module.exports = { displayControlEnabled, start, stop, reconcile, getState, getDecision, setOverride, setSchedule };
 
 if (require.main === module) {
 	start();

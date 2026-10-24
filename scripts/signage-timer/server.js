@@ -79,9 +79,17 @@ function readJson(request) {
 }
 
 function status(controller) {
+	if (controller.displayControlEnabled === false) {
+		return {
+			displayControlEnabled: false,
+			timeZone: TIME_ZONE,
+			authRequired: Boolean(process.env.SIGNAGE_TIMER_USER),
+		};
+	}
 	const state = controller.getState();
 	const decision = controller.getDecision();
 	return {
+		displayControlEnabled: true,
 		display: decision.display,
 		reason: decision.reason,
 		nextEvaluationAt: decision.nextEvaluationAt,
@@ -273,6 +281,11 @@ async function handle(request, response, controller) {
 	}
 	if (request.method === "GET" && pathname === "/api/status") {
 		sendJson(response, 200, status(controller));
+		return;
+	}
+	if (controller.displayControlEnabled === false
+		&& (pathname.startsWith("/api/display/") || pathname === "/api/override" || pathname === "/api/schedule")) {
+		sendJson(response, 403, { error: "この操作盤では画面制御は無効です" });
 		return;
 	}
 

@@ -8,6 +8,7 @@
 	<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 	<title>サイネージ操作盤</title>
 	<style>
+		[data-display-control][hidden] { display: none; }
 		:root {
 			color-scheme: light;
 			--paper: #f4f1ea;
@@ -813,7 +814,7 @@
 			<small id="timezone"></small>
 		</header>
 
-		<section id="status-card" class="status-card" aria-live="polite">
+		<section id="status-card" class="status-card" aria-live="polite" data-display-control hidden>
 			<div class="status-head">
 				<span class="status-dot" aria-hidden="true"></span>
 				<strong id="display-state">確認中</strong>
@@ -829,7 +830,7 @@
 		</div>
 
 		<div>
-			<div class="tabs" role="tablist" aria-label="操作盤の表示切り替え">
+			<div class="tabs" role="tablist" aria-label="操作盤の表示切り替え" data-display-control hidden>
 				<button class="tab" type="button" role="tab" id="tab-control" aria-controls="panel-control" aria-selected="true">
 					<svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg>操作
 				</button>
@@ -840,7 +841,7 @@
 			</div>
 
 			<section id="panel-control" role="tabpanel" aria-labelledby="tab-control" tabindex="0">
-				<div class="group">
+				<div class="group" data-display-control hidden>
 					<h2 class="group-head">画面</h2>
 					<div class="control-grid">
 						<button class="solid" data-action="display-on"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>つける</button>
@@ -988,6 +989,12 @@
 		}
 
 		function updateStatus(data) {
+			const displayControlEnabled = data.displayControlEnabled !== false;
+			document.querySelectorAll("[data-display-control]").forEach((element) => {
+				element.hidden = !displayControlEnabled;
+			});
+			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired);
+			if (!displayControlEnabled) return;
 			const card = document.querySelector("#status-card");
 			card.classList.toggle("on", data.display === "on");
 			card.classList.toggle("off", data.display === "off");
@@ -1009,8 +1016,6 @@
 			document.querySelector("#hardware-state").textContent =
 				`DPMS ${data.dpms ?? "不明"} / PowerSaveMode ${data.powerSaveMode ?? "不明"}`;
 			document.querySelector("#timezone").textContent = data.timeZone;
-			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired);
-
 			const serialized = JSON.stringify(data.schedule);
 			// 入力途中を5秒更新で消さない。未編集で予定自体が変わったときだけ描き直す。
 			if (!scheduleDirty && serialized !== renderedSchedule) renderSchedule(data.schedule);
