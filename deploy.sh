@@ -95,9 +95,13 @@ deploy_signage() {
 		on_host 'rm -f ~/.config/systemd/user/signage-timer.service.d/local.conf'
 	fi
 	# ユニットを置き換えたら読み直させる。動いている最中なら入れ替える。
-	# 有効化していない環境では触らない（勝手に常駐させない）。
-	on_host 'systemctl --user daemon-reload
-		if systemctl --user is-enabled --quiet signage-timer.service 2>/dev/null; then
+	# 同じ PC で使うときは画面を消さないので、リモコンとして常駐を有効にする。
+	# 別の表示機では予定どおり画面を消し始めるため、有効化していなければ触らない。
+	on_host 'systemctl --user daemon-reload'
+	if [ "$HOST" = "local" ]; then
+		on_host 'systemctl --user enable --quiet signage-timer.service'
+	fi
+	on_host 'if systemctl --user is-enabled --quiet signage-timer.service 2>/dev/null; then
 			systemctl --user restart signage-timer.service
 			echo "  画面タイマーを入れ替えました"
 		else

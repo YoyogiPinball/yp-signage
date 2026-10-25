@@ -127,6 +127,26 @@ test("画面制御が無効なら状態取得はハードウェアに触れず�
 	});
 });
 
+test("本人限定が未設定のとき、外から開かれた場合だけ状態に viaRemote を立てる", async (t) => {
+	await withoutAuth(t, async () => {
+		const controller = { displayControlEnabled: false };
+		const { handle } = require("../scripts/signage-timer/server.js");
+		const cases = [
+			[{ host: "127.0.0.1:8081" }, false],
+			[{ host: "localhost:8081" }, false],
+			[{ host: "[::1]:8081" }, false],
+			[{ host: "signage.example.ts.net" }, true],
+			[{ host: "127.0.0.1:8081", "tailscale-user-login": "someone@example.com" }, true],
+			[{}, true],
+		];
+		for (const [headers, expected] of cases) {
+			const response = captureResponse();
+			await handle({ method: "GET", url: "/api/status", headers, socket: {} }, response, controller);
+			assert.equal(JSON.parse(response.body).viaRemote, expected, JSON.stringify(headers));
+		}
+	});
+});
+
 async function withoutAuth(t, run) {
 	const previousUser = process.env.SIGNAGE_TIMER_USER;
 	const previousPort = process.env.SIGNAGE_PORT;

@@ -78,12 +78,27 @@ function readJson(request) {
 	});
 }
 
-function status(controller) {
+// この PC の中（127.0.0.1 / localhost）以外から開かれたか。リモコンが本人限定の注意を
+// 出すかどうかに使う。Serve は Host を保ったまま渡すので、Tailnet から開けば Tailscale 側の名前になる。
+// 本人ヘッダーが付いていれば Host に関係なく外からとみなし、判断できないときも外からに寄せる。
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+function isViaRemote(request) {
+	if (request.headers["tailscale-user-login"]) return true;
+	const host = request.headers.host;
+	if (!host) return true;
+	return !LOOPBACK_HOSTS.has(String(host).replace(/:\d+$/, ""));
+}
+
+function status(controller, request) {
+	const access = {
+		authRequired: Boolean(process.env.SIGNAGE_TIMER_USER),
+		viaRemote: isViaRemote(request),
+	};
 	if (controller.displayControlEnabled === false) {
 		return {
 			displayControlEnabled: false,
 			timeZone: TIME_ZONE,
-			authRequired: Boolean(process.env.SIGNAGE_TIMER_USER),
+			...access,
 		};
 	}
 	const state = controller.getState();
@@ -98,7 +113,7 @@ function status(controller) {
 		dpms: display.readDpms(),
 		schedule: state.schedule,
 		timeZone: TIME_ZONE,
-		authRequired: Boolean(process.env.SIGNAGE_TIMER_USER),
+		...access,
 	};
 }
 
@@ -280,7 +295,7 @@ async function handle(request, response, controller) {
 		return;
 	}
 	if (request.method === "GET" && pathname === "/api/status") {
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 	if (controller.displayControlEnabled === false
@@ -292,22 +307,22 @@ async function handle(request, response, controller) {
 	if (request.method === "POST" && (pathname === "/api/display/on" || pathname === "/api/display/off")) {
 		const kind = pathname.endsWith("/on") ? "on" : "off";
 		controller.setOverride({ kind, until: overrideUntilNextChange(controller) });
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 	if (request.method === "POST" && pathname === "/api/display/off-until-morning") {
 		controller.setOverride({ kind: "off", until: nextMorning(Date.now()) });
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 	if (request.method === "POST" && pathname === "/api/display/off-until-on") {
 		controller.setOverride({ kind: "off-until-on" });
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 	if (request.method === "DELETE" && pathname === "/api/override") {
 		controller.setOverride(null);
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 	if (request.method === "PUT" && pathname === "/api/schedule") {
@@ -318,7 +333,7 @@ async function handle(request, response, controller) {
 			return;
 		}
 		controller.setSchedule(schedule);
-		sendJson(response, 200, status(controller));
+		sendJson(response, 200, status(controller, request));
 		return;
 	}
 

@@ -993,7 +993,7 @@
 			document.querySelectorAll("[data-display-control]").forEach((element) => {
 				element.hidden = !displayControlEnabled;
 			});
-			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired);
+			document.querySelector("#auth-notice").classList.toggle("show", !data.authRequired && data.viaRemote);
 			if (!displayControlEnabled) return;
 			const card = document.querySelector("#status-card");
 			card.classList.toggle("on", data.display === "on");
