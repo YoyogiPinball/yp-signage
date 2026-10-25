@@ -7,7 +7,7 @@
 
 ## 起動・停止・ログ
 
-`mm-start.sh` は起動、`mm-stop.sh` は停止を行う `~/run/` 内のスクリプトです。
+`mm-start.sh` と `mm-stop.sh` は `~/run/` 内のスクリプトで、それぞれ起動と停止に使います。
 `journalctl` はユーザーサービスのログを確認するコマンドです。
 
 ```bash
@@ -17,12 +17,12 @@ ssh signage 'journalctl --user -u magicmirror -f'   # ログ
 ```
 
 事前に表示機で `loginctl enable-linger <ユーザー名>` を実行しておいてください。
-ssh を切ったあともユーザーのサービスを動かし続ける設定で、これが無いと切断時に画面の表示が止まります。
+ssh を切ったあともユーザーのサービスを動かし続けるための設定です。この設定が無いと切断時に画面の表示が止まります。
 
 > **Note:** `mm-start.sh` は `nohup` ではなく `systemd-run --user` で起動します。
-> ssh 越しに起動したプロセスは、セッション終了時に logind（`KillUserProcesses=yes`）が
-> セッションごと SIGTERM するため、`nohup` では起動直後に停止されます。
-> transient service として ssh セッションの scope から切り離すことで動き続けます。
+> ssh 越しに起動したプロセスには、セッション終了時に logind（`KillUserProcesses=yes`）が
+> セッション全体へ SIGTERM を送るため、`nohup` では起動直後に停止されます。
+> プロセスは transient service として ssh セッションの scope から切り離されるため、動き続けます。
 
 ## 日々の操作
 
@@ -42,13 +42,13 @@ ssh を切ったあともユーザーのサービスを動かし続ける設定�
 | ⚠ 画像を読み込めません | 再生リストの画像がすべて壊れていて表示できない状態です |
 
 > **Note:** 再生を終えた（■ 再生終了）状態では、メニューの「一時停止／再開」が
-> 「最初から再生」に変わります。最後の画像で止まっているところで「再開」を押しても、
-> そこが末尾なのですぐまた終わってしまい、押しても何も起きないように見えるためです。
+> 「最初から再生」に変わります。最後の画像で止まっているときに「再開」を押しても、
+> すぐにまた再生が終わってしまい、押しても何も起きないように見えるためです。
 
 > **Warning:** 「終了」はメニューからしか行えません。Alt+F4 やウィンドウの閉じるボタンでは終了しません。
 > MagicMirror² 本体が `window-all-closed` でウィンドウを作り直す仕組みになっているためで
 > （常時表示の機器で誤って閉じても戻るようにする設計）、本体を改変しない限り変えられません。
-> 誤操作が心配な設置では MagicMirror² の設定ファイル `~/MagicMirror/config/config.js` の `allowQuit: false` で項目ごと消せます。
+> 誤操作が心配な設置環境では、MagicMirror² の設定ファイル `~/MagicMirror/config/config.js` の `allowQuit: false` で終了の項目ごと消せます。
 
 手元のマシンから操作するときは、`~/run/` の操作スクリプト `mm-ctl.sh` を使います。
 
@@ -68,7 +68,7 @@ ssh signage 'bash ~/run/mm-ctl.sh next'
 
 ## 画面を撮影する
 
-画面キャプチャは `~/run/` の撮影スクリプト `mm-shot.sh` で撮れます。実際に映っている画面をそのまま取得するので、
+画面の撮影には `~/run/` の撮影スクリプト `mm-shot.sh` を使えます。実際に映っている画面をそのまま取得するので、
 実機で見えているとおりの画像が得られます。
 
 ```bash
@@ -77,7 +77,7 @@ ssh signage 'SHOT_CONNECTOR=HDMI-2 bash ~/run/mm-shot.sh'  # モニタを指定�
 ```
 
 > **Note:** GNOME (Wayland) では、D-Bus のスクリーンショット API は新しめの GNOME で拒否され、
-> XWayland 側の X11 root grab は合成後の画面が入らず真っ黒になります。どちらも使えないため、
+> XWayland 側の X11 root grab では合成後の画面を取得できず、真っ黒になります。どちらも使えないため、
 > Mutter の ScreenCast を D-Bus で開始し、実画面の PipeWire ストリームから 1 フレームだけ取得しています
 > （`~/run/` のフレーム取得用スクリプト `mm-shot.py`）。どのモニタを撮るかは毎回 `Mutter.DisplayConfig` に問い合わせるので、
 > ケーブルを挿し替えても設定の変更は不要です。

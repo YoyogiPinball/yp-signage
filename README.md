@@ -4,12 +4,12 @@
 [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) の設定と自作モジュールで構成しています。
 
 このリポジトリにMagicMirror²本体は含まれていません。
-先に本体を導入し、その上へ設定と自作モジュールを配布して使います。
+先に本体を導入し、設定と自作モジュールを配布して使います。
 
 <img src="docs/screenshot.jpg" alt="yp-signage の画面。上に時計・月カレンダー・天気、下に配信予定が並ぶ" width="360">
 
 上の画像は実機（縦 1080×1920）をデモモードで撮影したものです。
-背景と予定はすべて同梱のサンプルデータで、デモ起動用の環境変数 `SIGNAGE_DEMO=true` を付けて起動すれば同じ画面が出ます。
+背景と予定はすべて同梱のサンプルデータで、デモ起動用の環境変数 `SIGNAGE_DEMO=true` を指定して起動すれば同じ画面が出ます。
 
 使っていないノートPCと外部モニターを活用し、時計やカレンダーと一緒に推しの配信予定を常時表示したい、というところから作り始めました。
 配信予定は自作のWebサービスである[推しスケ](https://github.com/YoyogiPinball/oshi-sche-webapp)からiCalendar形式で受け取ります。
@@ -52,7 +52,7 @@ flowchart LR
 ```
 
 配布モードでは、操作元 PC から SSH で表示機へ設定とモジュールを配り、スマホのリモコンは Tailscale Serve を通して接続します。
-ローカルモードでは操作元 PC と表示機が同じ機械で、設定とモジュールの配布方法は SSH を使わないコピーです。
+ローカルモードでは操作元 PC と表示機が同じ機械です。設定とモジュールは SSH を使わずにコピーします。
 表示機は iCal 配信元と天気の API から情報を取得し、デモモードでは通信せずサンプルを表示します。
 
 ## 使い方を選ぶ
@@ -116,16 +116,16 @@ cd yp-signage
 ### 3. 配布先を決める
 
 `deploy.sh` は設定・モジュールを配布するスクリプト、`sync-images.sh` は画像を同期するスクリプトです。
-どちらもリポジトリ直下にあり、配布先の機械を `signage.conf` から読みます。
-このファイルは `.gitignore` 済みで、ホスト名や手元のフォルダ構成がリポジトリに入らないようにしてあります。
+どちらもリポジトリ直下にあり、配布先を `signage.conf` から読み取ります。
+このファイルは `.gitignore` で除外されるため、ホスト名や手元のフォルダ構成がリポジトリに入らないようになっています。
 
 ```bash
 cp signage.conf.example signage.conf
 $EDITOR signage.conf     # SIGNAGE_HOST_DEFAULT に ssh の設定名を書く
 ```
 
-配布モード: SSH の接続先設定ファイル `~/.ssh/config` の `Host` 名を書いてください。鍵認証を通しておく必要があります。
-その場限りで変えたいときは `SIGNAGE_HOST=別の名前 ./deploy.sh` でも渡せます（こちらが優先されます）。
+配布モード: SSH の接続先設定ファイル `~/.ssh/config` の `Host` 名を書いてください。鍵認証で接続できるようにしておく必要があります。
+配布先をその場限りで変えたいときは `SIGNAGE_HOST=別の名前 ./deploy.sh` でも指定できます（こちらが優先されます）。
 
 ローカルモード: ssh の設定名の代わりに `SIGNAGE_HOST_DEFAULT="local"` と書きます。
 `deploy.sh` は ssh を使わず、同じ PC の中でコピーします。
@@ -141,7 +141,7 @@ ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'
 ```
 
 背景には同梱のサンプル画像、配信予定にはダミーデータが表示され、天気は API キー不要のデモ用パネルに
-差し替わった画面が出ます。「入れたのに何も出ない」と困る前に、動いている状態を見ておくためのものです。
+差し替わります。「入れたのに何も出ない」と困る前に、動いている状態を見ておくためのものです。
 デモモードになるのはこの起動の回だけで、`SIGNAGE_DEMO=true` を付けずに起動し直せば元の画面に戻ります。
 
 ### 5. 背景画像を置く
@@ -163,7 +163,7 @@ ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'
 
 ローカルモード: 同じ PC の `~/MagicMirror/.env` を直接編集してください。
 
-既存の `.env` は配布で上書きせず、無いときだけひな形を置きます。
+既存の `.env` は配布時に上書きされず、ファイルが無いときだけひな形が置かれます。
 初回の配置コマンド、書式、モニター選択、倍率、機能のオン・オフは [表示と機能の設定](docs/configuration.md) を参照してください。
 
 ### 7. サイネージ用端末へ配布する
@@ -172,7 +172,7 @@ ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'
 ./deploy.sh
 ```
 
-配布先には手順 3 で `signage.conf` に書いた機械が使われます。別の機械へ 1 回だけ配りたいときは
+配布先は手順 3 で `signage.conf` に指定した機械です。別の機械へ 1 回だけ配りたいときは
 `SIGNAGE_HOST=別の名前 ./deploy.sh` としてください。何をどこへ置くかは [配布先の対応表](docs/architecture.md#配布先の対応表) にあります。
 
 ### 8. 初回だけ必要な権限修正
@@ -181,13 +181,13 @@ ssh signage 'SIGNAGE_DEMO=true bash ~/run/mm-start.sh'
 ssh signage 'sudo bash ~/run/mm-fix-sandbox.sh'
 ```
 
-Electron の `chrome-sandbox` は所有者と権限が特定の状態でないと起動を拒否します。
+Electron は `chrome-sandbox` の所有者と権限が特定の状態でないと起動を拒否します。
 パッケージの入れ方によっては条件を満たしていないため、初回に一度だけ修正が必要です。
 
 ### 9. 起動する
 
 配布モードでは先に表示機で `loginctl enable-linger <ユーザー名>` を実行し、SSH を切ってもユーザーサービスを動かし続ける設定にしてください。
-起動は次のコマンドです。
+起動には次のコマンドを使います。
 
 ```bash
 ssh signage 'bash ~/run/mm-start.sh'
@@ -209,7 +209,7 @@ ssh signage 'bash ~/run/mm-start.sh'
 ## 更新するとき
 
 すでに動かしているものを更新する場合は、先に [CHANGELOG.md](./CHANGELOG.md) を読んでください。
-何が変わったかと、`.env` の書き換えが要るかどうかを書いてあります。
+変更内容と、`.env` の書き換えが要るかどうかを書いてあります。
 
 ## 作者
 
