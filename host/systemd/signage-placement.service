@@ -1,0 +1,20 @@
+# サイネージの窓の位置を監視する（scripts/mm-placement.js）ユーザーサービス。
+# 配布先: ~/.config/systemd/user/signage-placement.service（deploy.sh が置いて有効にする）
+#
+# スリープ復帰などでモニターが戻る順番がずれると、サイネージが別のモニターへ移されたまま
+# 残る。モニター構成が変わるたびに位置を確かめ、外れていれば mm-start.sh で出し直す。
+# ユーザーサービスにしているのは、構成の変化を GNOME(Mutter) のセッションバスで受けるため。
+
+[Unit]
+Description=yp-signage window placement watcher
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node %h/run/mm-placement.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

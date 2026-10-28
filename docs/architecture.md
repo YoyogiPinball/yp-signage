@@ -145,7 +145,7 @@ ICS を配信できるサービスであれば何でも接続できます。
 
 | リポジトリ側 | 表示機側 |
 |---|---|
-| `scripts/`（`*.sh` と `mm-shot.py` / `mm-shot.js` / `README.md`） | `~/run/` |
+| `scripts/`（`*.sh` と `mm-shot.py` / `mm-shot.js` / `mm-placement.js` / `README.md`） | `~/run/` |
 | `magicmirror/config.js` | `~/MagicMirror/config/config.js` |
 | `magicmirror/.env.example` | `~/MagicMirror/.env`（`config/` ではなくルート）。表示機に `.env` が無いときだけ置き、既にあれば上書きしない |
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
@@ -154,6 +154,7 @@ ICS を配信できるサービスであれば何でも接続できます。
 | `scripts/signage-timer/` | `~/run/signage-timer/`（画面タイマーとリモコンの本体） |
 | `host/systemd/signage-timer.service` | `~/.config/systemd/user/signage-timer.service`（画面タイマーを常駐させるユーザーサービス） |
 | なし（`deploy.sh` が書き出す） | `~/.config/systemd/user/signage-timer.service.d/local.conf`。ローカルモードのときだけ置き、画面の点灯・消灯の制御を既定で無効にする。配布モードで配るとこのファイルを消す |
+| `host/systemd/signage-placement.service` | `~/.config/systemd/user/signage-placement.service`（窓の位置を監視するユーザーサービス。配布先を問わず有効にする） |
 
 ### 配布しないもの
 

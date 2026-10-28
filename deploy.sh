@@ -51,7 +51,7 @@ deploy_signage() {
 
 	# --- 起動・停止スクリプト ---
 	on_host 'mkdir -p ~/run'
-	put "$D/mm-start.sh" "$D/mm-display.sh" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/signage-display-on.sh" "$D/README.md" '~/run/'
+	put "$D/mm-start.sh" "$D/mm-display.sh" "$D/mm-placement.sh" "$D/mm-placement.js" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/signage-display-on.sh" "$D/README.md" '~/run/'
 	on_host 'chmod +x ~/run/*.sh ~/run/*.py'
 
 	# --- MagicMirror 設定・モジュール ---
@@ -107,6 +107,15 @@ deploy_signage() {
 		else
 			echo "  画面タイマーは未設定です。使うなら表示機で: systemctl --user enable --now signage-timer"
 		fi'
+
+	# --- 窓の位置の監視（常駐サービス） ---
+	# 窓が外れたときに出し直すだけで画面の点灯は変えないので、配布先を問わず有効にする。
+	on_host 'mkdir -p ~/.config/systemd/user'
+	put "$ROOT/host/systemd/signage-placement.service" '~/.config/systemd/user/signage-placement.service'
+	on_host 'systemctl --user daemon-reload
+		systemctl --user enable --quiet signage-placement.service
+		systemctl --user restart signage-placement.service'
+	echo "  窓の位置の監視を入れ替えました"
 
 	echo "yp-signage を $HOST へ配布完了"
 }
