@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=yp-signage
+Comment=サイネージを起動する（動いていれば起動し直す）
+Keywords=signage;サイネージ;MagicMirror;
+Exec=bash -c "bash ~/run/mm-start.sh"
+Icon=yp-signage
+# MagicMirror の窓の WM_CLASS。これで動いている窓がこの項目のアイコンと右クリックのメニューで出る。
+StartupWMClass=electron
+Terminal=false
+StartupNotify=false
+Categories=Utility;
+Actions=stop;remote;
+
+[Desktop Action stop]
+Name=停止
+Exec=bash -c "bash ~/run/mm-stop.sh"
+
+[Desktop Action remote]
+Name=操作盤を開く
+Exec=xdg-open http://127.0.0.1:8081/

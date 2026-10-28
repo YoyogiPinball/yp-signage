@@ -55,7 +55,7 @@ deploy_signage() {
 	on_host 'chmod +x ~/run/*.sh ~/run/*.py'
 
 	# --- MagicMirror 設定・モジュール ---
-	on_host 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/yp-slideshow ~/MagicMirror/modules/yp-oshical ~/MagicMirror/modules/yp-monthcal ~/MagicMirror/modules/yp-demoweather ~/MagicMirror/css ~/MagicMirror/samples'
+	on_host 'mkdir -p ~/MagicMirror/config ~/MagicMirror/modules/yp-slideshow ~/MagicMirror/modules/yp-oshical ~/MagicMirror/modules/yp-monthcal ~/MagicMirror/modules/yp-demoweather ~/MagicMirror/modules/yp-quit-on-close ~/MagicMirror/css ~/MagicMirror/samples'
 	put "$MM/config.js" '~/MagicMirror/config/config.js'
 	put "$MM/css/custom.css" '~/MagicMirror/css/custom.css'
 	# 設定値と秘密情報の .env は表示機側だけに置き、配布では上書きしない。
@@ -75,6 +75,7 @@ deploy_signage() {
 	put "$MM/modules/yp-oshical/yp-oshical.js" "$MM/modules/yp-oshical/node_helper.js" "$MM/modules/yp-oshical/yp-oshical.css" '~/MagicMirror/modules/yp-oshical/'
 	put "$MM/modules/yp-monthcal/yp-monthcal.js" "$MM/modules/yp-monthcal/yp-monthcal.css" "$MM/modules/yp-monthcal/holidays.js" '~/MagicMirror/modules/yp-monthcal/'
 	put "$MM/modules/yp-demoweather/yp-demoweather.js" "$MM/modules/yp-demoweather/yp-demoweather.css" '~/MagicMirror/modules/yp-demoweather/'
+	put "$MM/modules/yp-quit-on-close/yp-quit-on-close.js" "$MM/modules/yp-quit-on-close/node_helper.js" '~/MagicMirror/modules/yp-quit-on-close/'
 
 	# デモモード（SIGNAGE_DEMO=true）が見る背景画像。MagicMirror のルート直下に置く。
 	# モジュール側は global.root_path から samples/ を解決するので、この場所が前提になる。
@@ -116,6 +117,19 @@ deploy_signage() {
 		systemctl --user enable --quiet signage-placement.service
 		systemctl --user restart signage-placement.service'
 	echo "  窓の位置の監視を入れ替えました"
+
+	# --- アプリ一覧のアイコン（同じ PC で使うときだけ） ---
+	# 押すと起動、右クリックで停止と操作盤。表示機を別に置くときは、そこで操作する人がいないので置かない。
+	if [ "$HOST" = "local" ]; then
+		on_host 'mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps'
+		put "$ROOT/host/desktop/yp-signage.desktop" '~/.local/share/applications/yp-signage.desktop'
+		put "$ROOT/host/desktop/yp-signage.png" '~/.local/share/icons/hicolor/256x256/apps/yp-signage.png'
+		# 索引ファイル icon-theme.cache が既にあると、GNOME はそれだけを見て足したアイコンを見つけない。
+		on_host 'if [ -e ~/.local/share/icons/hicolor/icon-theme.cache ]; then
+				gtk-update-icon-cache -q -f -t ~/.local/share/icons/hicolor || true
+			fi'
+		echo "  アプリ一覧に yp-signage を置きました"
+	fi
 
 	echo "yp-signage を $HOST へ配布完了"
 }

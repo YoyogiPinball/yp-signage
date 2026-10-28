@@ -15,7 +15,7 @@ flowchart TB
         timer["⚙️ 画面タイマー signage-timer<br>127.0.0.1:8081"]
         subgraph magicmirror["⚙️ MagicMirror²（Electron・XWayland 上）"]
             mm["⚙️ MagicMirror² 本体"]
-            modules["📦 自作モジュール<br>yp-slideshow / yp-oshical<br>yp-monthcal / yp-demoweather"]
+            modules["📦 自作モジュール<br>yp-slideshow / yp-oshical<br>yp-monthcal / yp-demoweather<br>yp-quit-on-close"]
         end
         xwayland["⚙️ XWayland<br>X11 の画面座標"]
         mutter["⚙️ GNOME Mutter<br>D-Bus の PowerSaveMode"]
@@ -126,6 +126,12 @@ ICS を配信できるサービスであれば何でも接続できます。
 デモ起動用の環境変数 `SIGNAGE_DEMO=true` のときだけ、組み込みの天気モジュールの代わりに表示されます。
 通信せず、固定の 5 日予報を描くだけの 100 行ほどのモジュールです。
 
+### yp-quit-on-close（窓を閉じたら終了）
+
+画面には何も出しません。MagicMirror 本体は、窓がすべて閉じられると窓を作り直します。
+そのため GNOME の「終了」で窓を閉じても、すぐに窓が戻ってきます。
+このモジュールは閉じる操作を受けると、窓を作り直させずに MagicMirror ごと終了させます。本体のファイルは書き換えていません。
+
 ## custom.css の考え方
 
 `custom.css` は `magicmirror/css/` にある表示用スタイルで、表示機では `~/MagicMirror/css/custom.css` に置きます。
@@ -155,6 +161,8 @@ ICS を配信できるサービスであれば何でも接続できます。
 | `host/systemd/signage-timer.service` | `~/.config/systemd/user/signage-timer.service`（画面タイマーを常駐させるユーザーサービス） |
 | なし（`deploy.sh` が書き出す） | `~/.config/systemd/user/signage-timer.service.d/local.conf`。ローカルモードのときだけ置き、画面の点灯・消灯の制御を既定で無効にする。配布モードで配るとこのファイルを消す |
 | `host/systemd/signage-placement.service` | `~/.config/systemd/user/signage-placement.service`（窓の位置を監視するユーザーサービス。配布先を問わず有効にする） |
+| `host/desktop/yp-signage.desktop` | `~/.local/share/applications/yp-signage.desktop`（アプリ一覧の項目。ローカルモードのときだけ置く） |
+| `host/desktop/yp-signage.png` | `~/.local/share/icons/hicolor/256x256/apps/yp-signage.png`（その項目のアイコン。ローカルモードのときだけ置く） |
 
 ### 配布しないもの
 
