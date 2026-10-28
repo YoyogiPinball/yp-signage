@@ -1,94 +1,53 @@
 /* server.js（WebリモコンAPI）の境界テスト。
  *
  * 何を保証するか:
- *   - 明示点灯待ちのAPIが期限なしoverrideをコントローラーへ渡すこと
- *   - 応答にも同じ状態が返ること
- *   - 既存の点灯APIで期限なしoverrideを解除できること
+ *   - 画面の点灯・消灯と点灯予定の API が無く、どの要求でも画面を消せないこと
+ *   - 状態取得が本人限定の設定と開かれ方だけを返し、画面の電源状態を読まないこと
+ *   - Webリモコンの配布物に、画面の電源状態（PowerSaveMode）へ書き込むコードが無いこと
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { defaultSchedule } = require("../scripts/signage-timer/state.js");
-const scheduleLogic = require("../scripts/signage-timer/schedule.js");
+const fs = require("node:fs");
+const path = require("node:path");
 
-test("翌朝の期限は未明なら同日、それ以降なら翌日の07:00になる", () => {
-	const { nextMorning } = require("../scripts/signage-timer/server.js");
-	assert.equal(
-		new Date(nextMorning(Date.parse("2026-08-23T16:35:00Z"))).toISOString(),
-		"2026-08-23T22:00:00.000Z",
-	);
-	assert.equal(
-		new Date(nextMorning(Date.parse("2026-08-23T21:59:59Z"))).toISOString(),
-		"2026-08-23T22:00:00.000Z",
-	);
-	assert.equal(
-		new Date(nextMorning(Date.parse("2026-08-23T22:00:00Z"))).toISOString(),
-		"2026-08-24T22:00:00.000Z",
-	);
+test("画面の点灯・消灯と点灯予定の API は 404 を返す", async (t) => {
+	await withoutAuth(t, async () => {
+		const { handle } = require("../scripts/signage-timer/server.js");
+		for (const [method, url] of [
+			["POST", "/api/display/on"],
+			["POST", "/api/display/off"],
+			["POST", "/api/display/off-until-morning"],
+			["POST", "/api/display/off-until-on"],
+			["DELETE", "/api/override"],
+			["PUT", "/api/schedule"],
+		]) {
+			const response = captureResponse();
+			await handle({ method, url, headers: {}, socket: {} }, response);
+			assert.equal(response.statusCode, 404, url);
+		}
+	});
 });
 
-test("明示点灯待ちAPIは期限なしoverrideを保存し、点灯APIで解除できる", async (t) => {
-	const previousUser = process.env.SIGNAGE_TIMER_USER;
-	delete process.env.SIGNAGE_TIMER_USER;
-
-	const display = require("../scripts/signage-timer/display.js");
-	const originalPower = display.readPowerSaveMode;
-	const originalDpms = display.readDpms;
-	display.readPowerSaveMode = () => 1;
-	display.readDpms = () => "Off";
-
-	const state = { schedule: defaultSchedule(), override: null };
-	const controller = {
-		getState: () => state,
-		getDecision: () => scheduleLogic.decide({
-			now: Date.now(),
-			timeZone: "Asia/Tokyo",
-			schedule: state.schedule,
-			override: state.override,
-		}),
-		setOverride: (override) => { state.override = override; },
-	};
-	const { handle } = require("../scripts/signage-timer/server.js");
-	let statusCode;
-	let responseBody;
-	const response = {
-		headersSent: false,
-		writeHead: (code) => {
-			statusCode = code;
-			response.headersSent = true;
-		},
-		end: (body) => { responseBody = body; },
-	};
-
-	t.after(() => {
-		display.readPowerSaveMode = originalPower;
-		display.readDpms = originalDpms;
-		if (previousUser === undefined) delete process.env.SIGNAGE_TIMER_USER;
-		else process.env.SIGNAGE_TIMER_USER = previousUser;
+test("状態取得は画面の電源状態を返さない", async (t) => {
+	await withoutAuth(t, async () => {
+		const { handle } = require("../scripts/signage-timer/server.js");
+		const response = captureResponse();
+		await handle({ method: "GET", url: "/api/status", headers: { host: "127.0.0.1:8081" }, socket: {} }, response);
+		assert.equal(response.statusCode, 200);
+		assert.deepEqual(JSON.parse(response.body), { authRequired: false, viaRemote: false });
 	});
+});
 
-	await handle({
-		method: "POST",
-		url: "/api/display/off-until-on",
-		headers: {},
-		socket: { encrypted: false },
-	}, response, controller);
-	assert.equal(statusCode, 200);
-	const body = JSON.parse(responseBody);
-	assert.deepEqual(state.override, { kind: "off-until-on" });
-	assert.equal(body.display, "off");
-	assert.deepEqual(body.override, { kind: "off-until-on" });
-
-	response.headersSent = false;
-	await handle({
-		method: "POST",
-		url: "/api/display/on",
-		headers: {},
-		socket: { encrypted: false },
-	}, response, controller);
-	assert.equal(statusCode, 200);
-	assert.equal(state.override.kind, "on");
-	assert.equal(Number.isFinite(state.override.until), true);
-	assert.equal(JSON.parse(responseBody).display, "on");
+test("Webリモコンの配布物は PowerSaveMode に触れない", () => {
+	// サイネージ用途をやめた PC で画面を消し続けた事故（2026-10-28）の再発防止。
+	// 点灯・消灯の機能を戻すときは、このテストを消す判断を明示的にすることになる。
+	const directory = path.join(__dirname, "..", "scripts", "signage-timer");
+	for (const name of fs.readdirSync(directory)) {
+		const body = fs.readFileSync(path.join(directory, name), "utf8");
+		assert.doesNotMatch(body, /PowerSaveMode/, name);
+	}
+	const displayOn = path.join(__dirname, "..", "scripts", "signage-display-on.sh");
+	assert.equal(fs.existsSync(displayOn), false);
 });
 
 /* 表示履歴API（/api/slideshow/now）。
@@ -108,28 +67,8 @@ function captureResponse() {
 	return captured;
 }
 
-test("画面制御が無効なら状態取得はハードウェアに触れず変更APIを拒否する", async (t) => {
-	await withoutAuth(t, async () => {
-		const display = require("../scripts/signage-timer/display.js");
-		t.mock.method(display, "readPowerSaveMode", () => assert.fail("hardware read"));
-		t.mock.method(display, "readDpms", () => assert.fail("hardware read"));
-		const controller = { displayControlEnabled: false };
-		const { handle } = require("../scripts/signage-timer/server.js");
-		const response = captureResponse();
-		await handle({ method: "GET", url: "/api/status", headers: {}, socket: {} }, response, controller);
-		assert.equal(response.statusCode, 200);
-		assert.equal(JSON.parse(response.body).displayControlEnabled, false);
-		for (const [method, url] of [["POST", "/api/display/on"], ["POST", "/api/display/off"], ["POST", "/api/display/off-until-morning"], ["POST", "/api/display/off-until-on"], ["DELETE", "/api/override"], ["PUT", "/api/schedule"]]) {
-			const rejected = captureResponse();
-			await handle({ method, url, headers: {}, socket: {} }, rejected, controller);
-			assert.equal(rejected.statusCode, 403, url);
-		}
-	});
-});
-
 test("本人限定が未設定のとき、外から開かれた場合だけ状態に viaRemote を立てる", async (t) => {
 	await withoutAuth(t, async () => {
-		const controller = { displayControlEnabled: false };
 		const { handle } = require("../scripts/signage-timer/server.js");
 		const cases = [
 			[{ host: "127.0.0.1:8081" }, false],
@@ -141,7 +80,7 @@ test("本人限定が未設定のとき、外から開かれた場合だけ状�
 		];
 		for (const [headers, expected] of cases) {
 			const response = captureResponse();
-			await handle({ method: "GET", url: "/api/status", headers, socket: {} }, response, controller);
+			await handle({ method: "GET", url: "/api/status", headers, socket: {} }, response);
 			assert.equal(JSON.parse(response.body).viaRemote, expected, JSON.stringify(headers));
 		}
 	});
@@ -183,7 +122,7 @@ test("表示履歴APIは MagicMirror の応答をそのままリモコンへ渡�
 			url: "/api/slideshow/now",
 			headers: {},
 			socket: { encrypted: false },
-		}, response, {});
+		}, response);
 
 		assert.equal(response.statusCode, 200);
 		const body = JSON.parse(response.body);
@@ -211,7 +150,7 @@ test("MagicMirror が応答しないとき表示履歴APIは502を返す", async
 			url: "/api/slideshow/now",
 			headers: {},
 			socket: { encrypted: false },
-		}, response, {});
+		}, response);
 
 		assert.equal(response.statusCode, 502);
 		assert.equal(typeof JSON.parse(response.body).error, "string");
@@ -263,7 +202,7 @@ test("縮小画像の中継は MagicMirror の応答をそのまま流す", asyn
 			url: "/api/slideshow/shot?size=preview&file=" + encodeURIComponent("r5/あ とb.jpg"),
 			headers: {},
 			socket: { encrypted: false },
-		}, response, {});
+		}, response);
 		await finished;
 
 		assert.equal(response.statusCode, 200);
@@ -285,7 +224,7 @@ test("file の無い縮小画像の要求は400で断る", async (t) => {
 			url: "/api/slideshow/shot?size=thumb",
 			headers: {},
 			socket: { encrypted: false },
-		}, response, {});
+		}, response);
 		assert.equal(response.statusCode, 400);
 	});
 });
@@ -308,7 +247,7 @@ test("まだ縮小できていない画像の要求は404を返す", async (t) =
 			url: "/api/slideshow/shot?file=r5/none.jpg",
 			headers: {},
 			socket: { encrypted: false },
-		}, response, {});
+		}, response);
 		assert.equal(response.statusCode, 404);
 	});
 });

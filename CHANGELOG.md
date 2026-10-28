@@ -21,10 +21,29 @@
 - **窓を閉じると作り直されていた**：MagicMirror² 本体は、窓がすべて閉じられると窓を作り直します。
   新しいモジュール `yp-quit-on-close` により、GNOME の「終了」などで窓を閉じると MagicMirror² ごと終了するようにしました。
 
+### 削除
+
+- **画面の点灯・消灯と点灯予定**：画面タイマーは30秒ごとに画面の状態を読み、予定と違えば書き戻していました。
+  サイネージに使わなくなった PC でこれが動き続け、人が操作している最中も画面を消し直して、PC を使えなくしました。
+  画面の電源状態に触れる処理を機能ごと外しました。サイネージ用のモニターは、モニター本体の電源ボタンか OS の設定で消してください。
+  - リモコンの「つける」「消す」「翌朝7時まで消す」「次につけるまで消す」「自動に戻す」と、予定の編集画面
+  - `~/run/signage-display-on.sh`（「次につけるまで消す」を SSH から解除するスクリプト）
+  - 設定キー `SIGNAGE_DISPLAY_CONTROL` と `SIGNAGE_TIMER_TZ`
+
 ### 更新するときの注意
 
 `deploy.sh` は、配布モードでも `signage-placement` を有効にして起動します。画面の点灯・消灯には触れません。
 配布したあと、表示機で MagicMirror² を再起動すると `yp-quit-on-close` が読み込まれます。
+
+`deploy.sh` は、配布モードでも `signage-timer`（Webリモコン）を有効にして起動します。
+入れ替えの際に古い画面タイマーが止まります。点灯・消灯を有効にしていた表示機では、止まる直前に画面を点けます。
+表示機に残る次のファイルは使われなくなります。消しても消さなくても動作は変わりません。
+
+- `~/run/signage-display-on.sh`
+- `~/run/signage-timer/` の `display.js`・`schedule.js`・`state.js`
+- `~/.config/systemd/user/signage-timer.service.d/local.conf`
+- `~/.local/state/yp-signage/timer.json`（保存していた点灯予定）
+- `~/.config/yp-signage/timer.env` の `SIGNAGE_DISPLAY_CONTROL`・`SIGNAGE_TIMER_TZ` の行
 
 ## 2026-10-25
 

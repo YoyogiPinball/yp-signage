@@ -51,7 +51,7 @@ deploy_signage() {
 
 	# --- 起動・停止スクリプト ---
 	on_host 'mkdir -p ~/run'
-	put "$D/mm-start.sh" "$D/mm-display.sh" "$D/mm-placement.sh" "$D/mm-placement.js" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/signage-display-on.sh" "$D/README.md" '~/run/'
+	put "$D/mm-start.sh" "$D/mm-display.sh" "$D/mm-placement.sh" "$D/mm-placement.js" "$D/mm-stop.sh" "$D/mm-ctl.sh" "$D/mm-fix-sandbox.sh" "$D/mm-shot.sh" "$D/mm-shot.py" "$D/mm-shot.js" "$D/README.md" '~/run/'
 	on_host 'chmod +x ~/run/*.sh ~/run/*.py'
 
 	# --- MagicMirror 設定・モジュール ---
@@ -81,33 +81,17 @@ deploy_signage() {
 	# モジュール側は global.root_path から samples/ を解決するので、この場所が前提になる。
 	put "$ROOT/samples/"*.jpg "$ROOT/samples/README.md" '~/MagicMirror/samples/'
 
-	# --- 画面タイマー・リモコン（常駐サービス） ---
+	# --- リモコン（常駐サービス） ---
 	# フォルダ単位で送る。ファイルを1つ足すたびにここを直すと、配り忘れで
 	# 「配布したのに動きが変わらない」という分かりにくい壊れ方になる。
+	# 画面の点灯・消灯はしないので、配布先を問わず有効にする。
 	on_host 'mkdir -p ~/run/signage-timer ~/.config/systemd/user'
 	put "$D/signage-timer/"* '~/run/signage-timer/'
 	put "$ROOT/host/systemd/signage-timer.service" '~/.config/systemd/user/signage-timer.service'
-	# 同じ PC で使うときは画面の点灯・消灯を既定で切る。Mutter の PowerSaveMode は全画面に効き、
-	# 作業中のモニターまで消えるため。timer.env に書いた値はこれより優先される（EnvironmentFile= が勝つ）。
-	if [ "$HOST" = "local" ]; then
-		on_host 'mkdir -p ~/.config/systemd/user/signage-timer.service.d
-			printf "[Service]\nEnvironment=SIGNAGE_DISPLAY_CONTROL=false\n" > ~/.config/systemd/user/signage-timer.service.d/local.conf'
-	else
-		on_host 'rm -f ~/.config/systemd/user/signage-timer.service.d/local.conf'
-	fi
-	# ユニットを置き換えたら読み直させる。動いている最中なら入れ替える。
-	# 同じ PC で使うときは画面を消さないので、リモコンとして常駐を有効にする。
-	# 別の表示機では予定どおり画面を消し始めるため、有効化していなければ触らない。
-	on_host 'systemctl --user daemon-reload'
-	if [ "$HOST" = "local" ]; then
-		on_host 'systemctl --user enable --quiet signage-timer.service'
-	fi
-	on_host 'if systemctl --user is-enabled --quiet signage-timer.service 2>/dev/null; then
-			systemctl --user restart signage-timer.service
-			echo "  画面タイマーを入れ替えました"
-		else
-			echo "  画面タイマーは未設定です。使うなら表示機で: systemctl --user enable --now signage-timer"
-		fi'
+	on_host 'systemctl --user daemon-reload
+		systemctl --user enable --quiet signage-timer.service
+		systemctl --user restart signage-timer.service'
+	echo "  リモコンを入れ替えました"
 
 	# --- 窓の位置の監視（常駐サービス） ---
 	# 窓が外れたときに出し直すだけで画面の点灯は変えないので、配布先を問わず有効にする。

@@ -1,6 +1,6 @@
 # 表示機の構成と配布先
 
-表示機では MagicMirror² が画面を描き、画面タイマーが GNOME に点灯・消灯を依頼します。
+表示機では MagicMirror² が画面を描き、Webリモコンがスライドショーの操作と表示履歴を中継します。
 自作モジュールの役割と、リポジトリの各ファイルが配布される場所を確認できます。
 
 [概要へ戻る](../README.md)
@@ -11,14 +11,14 @@
 flowchart TB
     subgraph host["💻 表示機"]
         env["📄 .env<br>~/MagicMirror/.env"]
-        scripts["📜 ~/run/ のスクリプト<br>起動・停止・操作・撮影・点灯"]
-        timer["⚙️ 画面タイマー signage-timer<br>127.0.0.1:8081"]
+        scripts["📜 ~/run/ のスクリプト<br>起動・停止・操作・撮影"]
+        timer["⚙️ Webリモコン signage-timer<br>127.0.0.1:8081"]
         subgraph magicmirror["⚙️ MagicMirror²（Electron・XWayland 上）"]
             mm["⚙️ MagicMirror² 本体"]
             modules["📦 自作モジュール<br>yp-slideshow / yp-oshical<br>yp-monthcal / yp-demoweather<br>yp-quit-on-close"]
         end
         xwayland["⚙️ XWayland<br>X11 の画面座標"]
-        mutter["⚙️ GNOME Mutter<br>D-Bus の PowerSaveMode"]
+        mutter["⚙️ GNOME Mutter<br>D-Bus の撮影・表示構成"]
         screen["🖥️ モニター"]
     end
     env -->|設定値| mm
@@ -28,20 +28,19 @@ flowchart TB
     mm -->|モジュール読み込み| modules
     timer -->|HTTP 操作要求・履歴と縮小画像の取得| modules
     scripts -->|HTTP 操作| modules
-    timer -->|D-Bus 点灯・消灯| mutter
     scripts -->|D-Bus 撮影・表示構成の取得| mutter
-    scripts -->|HTTP 点灯要求| timer
     mm -->|X11 描画| xwayland
     xwayland -->|画面の合成| mutter
-    mutter -->|映像・電源状態| screen
+    mutter -->|映像| screen
 ```
 
 MagicMirror² は XWayland 上の Electron で動きます。背景・予定・月カレンダー・デモ天気を担当するのは自作モジュールです。
-起動スクリプトは xrandr から画面の位置と大きさを取得し、画面タイマーは D-Bus の PowerSaveMode で GNOME セッション全体の点灯・消灯を切り替えます。
-リモコンで画像操作・履歴の確認・縮小画像の取得を行うと、画面タイマーが MagicMirror² へ HTTP で問い合わせます。
+起動スクリプトは xrandr から画面の位置と大きさを取得します。
+リモコンで画像操作・履歴の確認・縮小画像の取得を行うと、Webリモコンが MagicMirror² へ HTTP で問い合わせます。
+表示機のどのスクリプトもサービスも、画面の点灯・消灯はしません。
 
 表示機の `.env` は `~/MagicMirror/.env` に置く設定ファイル、`~/run/` は操作スクリプトの配布先です。
-画面タイマーのポートと画面制御は [リモコンの設定](remote.md#画面タイマーを有効にする)、表示先と倍率は [表示の設定](configuration.md) で変更できます。
+リモコンのポートは [リモコンの設定](remote.md#リモコンを有効にする)、表示先と倍率は [表示の設定](configuration.md) で変更できます。
 
 ## 自作モジュール
 
@@ -157,9 +156,8 @@ ICS を配信できるサービスであれば何でも接続できます。
 | `magicmirror/css/custom.css` | `~/MagicMirror/css/custom.css` |
 | `magicmirror/modules/yp-*/` | `~/MagicMirror/modules/yp-*/` |
 | `samples/` | `~/MagicMirror/samples/`（デモモードが参照する背景画像） |
-| `scripts/signage-timer/` | `~/run/signage-timer/`（画面タイマーとリモコンの本体） |
-| `host/systemd/signage-timer.service` | `~/.config/systemd/user/signage-timer.service`（画面タイマーを常駐させるユーザーサービス） |
-| なし（`deploy.sh` が書き出す） | `~/.config/systemd/user/signage-timer.service.d/local.conf`。ローカルモードのときだけ置き、画面の点灯・消灯の制御を既定で無効にする。配布モードで配るとこのファイルを消す |
+| `scripts/signage-timer/` | `~/run/signage-timer/`（Webリモコンの本体） |
+| `host/systemd/signage-timer.service` | `~/.config/systemd/user/signage-timer.service`（Webリモコンを常駐させるユーザーサービス。配布先を問わず有効にする） |
 | `host/systemd/signage-placement.service` | `~/.config/systemd/user/signage-placement.service`（窓の位置を監視するユーザーサービス。配布先を問わず有効にする） |
 | `host/desktop/yp-signage.desktop` | `~/.local/share/applications/yp-signage.desktop`（アプリ一覧の項目。ローカルモードのときだけ置く） |
 | `host/desktop/yp-signage.png` | `~/.local/share/icons/hicolor/256x256/apps/yp-signage.png`（その項目のアイコン。ローカルモードのときだけ置く） |

@@ -2,13 +2,10 @@ const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
-const { nextEffectiveChange, validateSchedule } = require("./schedule.js");
-const display = require("./display.js");
 
 const HOST = "127.0.0.1";
 const DEFAULT_PORT = 8081;
 const DEFAULT_MAGICMIRROR_PORT = 8080;
-const TIME_ZONE = process.env.SIGNAGE_TIMER_TZ || "Asia/Tokyo";
 const MAX_BODY_BYTES = 64 * 1024;
 // 縮小画像の受け入れ上限とファイル名の長さ上限。MagicMirror が作るのは長辺1080pxの
 // JPEG なので通常は数百KBに収まる。桁違いの値が来たら、相手が壊れているとみなす。
@@ -52,32 +49,6 @@ function isRequestAllowed(request) {
 	return true;
 }
 
-function readJson(request) {
-	return new Promise((resolve, reject) => {
-		let size = 0;
-		let tooLarge = false;
-		const chunks = [];
-		request.on("data", (chunk) => {
-			size += chunk.length;
-			if (!tooLarge && size > MAX_BODY_BYTES) {
-				tooLarge = true;
-				reject(Object.assign(new Error("本文が大きすぎます"), { statusCode: 413 }));
-				return;
-			}
-			if (!tooLarge) chunks.push(chunk);
-		});
-		request.on("end", () => {
-			if (tooLarge) return;
-			try {
-				resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-			} catch {
-				reject(Object.assign(new Error("本文を JSON として読めません"), { statusCode: 400 }));
-			}
-		});
-		request.on("error", reject);
-	});
-}
-
 // この PC の中（127.0.0.1 / localhost）以外から開かれたか。リモコンが本人限定の注意を
 // 出すかどうかに使う。Serve は Host を保ったまま渡すので、Tailnet から開けば Tailscale 側の名前になる。
 // 本人ヘッダーが付いていれば Host に関係なく外からとみなし、判断できないときも外からに寄せる。
@@ -89,87 +60,11 @@ function isViaRemote(request) {
 	return !LOOPBACK_HOSTS.has(String(host).replace(/:\d+$/, ""));
 }
 
-function status(controller, request) {
-	const access = {
+function status(request) {
+	return {
 		authRequired: Boolean(process.env.SIGNAGE_TIMER_USER),
 		viaRemote: isViaRemote(request),
 	};
-	if (controller.displayControlEnabled === false) {
-		return {
-			displayControlEnabled: false,
-			timeZone: TIME_ZONE,
-			...access,
-		};
-	}
-	const state = controller.getState();
-	const decision = controller.getDecision();
-	return {
-		displayControlEnabled: true,
-		display: decision.display,
-		reason: decision.reason,
-		nextEvaluationAt: decision.nextEvaluationAt,
-		override: decision.reason === "override" ? state.override : null,
-		powerSaveMode: display.readPowerSaveMode(),
-		dpms: display.readDpms(),
-		schedule: state.schedule,
-		timeZone: TIME_ZONE,
-		...access,
-	};
-}
-
-function overrideUntilNextChange(controller) {
-	const now = Date.now();
-	const next = nextEffectiveChange({
-		now,
-		timeZone: TIME_ZONE,
-		schedule: controller.getState().schedule,
-	});
-	// 変化しない週でも期限なしにせず、手動状態が残り続ける事故を避ける。
-	return next === null ? now + 24 * 60 * 60 * 1000 : next;
-}
-
-function zonedParts(epoch, formatter) {
-	const result = {};
-	for (const part of formatter.formatToParts(new Date(epoch))) {
-		if (part.type !== "literal") result[part.type] = Number(part.value);
-	}
-	return result;
-}
-
-function nextMorning(now) {
-	const formatter = new Intl.DateTimeFormat("en-US-u-ca-gregory-nu-latn", {
-		timeZone: TIME_ZONE,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hourCycle: "h23",
-	});
-	const today = zonedParts(now, formatter);
-	// 未明に押したときは同日の朝、それ以降は翌日の朝を期限にする。
-	// 07:00 ちょうどはすでに到来済みなので、次に来る翌日の 07:00 を選ぶ。
-	const targetDay = new Date(Date.UTC(
-		today.year,
-		today.month - 1,
-		today.day + (today.hour < 7 ? 0 : 1),
-	));
-	const wallEpoch = Date.UTC(
-		targetDay.getUTCFullYear(),
-		targetDay.getUTCMonth(),
-		targetDay.getUTCDate(),
-		7,
-	);
-	const offsetAt = (epoch) => {
-		const parts = zonedParts(epoch, formatter);
-		return Date.UTC(
-			parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second,
-		) - epoch;
-	};
-	// 対象日のオフセットが今日と違う場合も扱えるよう、候補地点でもう一度引き直す。
-	const first = wallEpoch - offsetAt(wallEpoch);
-	return wallEpoch - offsetAt(first);
 }
 
 function magicMirrorPort() {
@@ -277,7 +172,7 @@ function controlSlideshow(command) {
 	return requestMagicMirror(`/yp-slideshow/control/${command}`);
 }
 
-async function handle(request, response, controller) {
+async function handle(request, response) {
 	if (!isRequestAllowed(request)) {
 		sendJson(response, 403, { error: "このリクエストは許可されていません" });
 		return;
@@ -295,48 +190,9 @@ async function handle(request, response, controller) {
 		return;
 	}
 	if (request.method === "GET" && pathname === "/api/status") {
-		sendJson(response, 200, status(controller, request));
+		sendJson(response, 200, status(request));
 		return;
 	}
-	if (controller.displayControlEnabled === false
-		&& (pathname.startsWith("/api/display/") || pathname === "/api/override" || pathname === "/api/schedule")) {
-		sendJson(response, 403, { error: "この操作盤では画面制御は無効です" });
-		return;
-	}
-
-	if (request.method === "POST" && (pathname === "/api/display/on" || pathname === "/api/display/off")) {
-		const kind = pathname.endsWith("/on") ? "on" : "off";
-		controller.setOverride({ kind, until: overrideUntilNextChange(controller) });
-		sendJson(response, 200, status(controller, request));
-		return;
-	}
-	if (request.method === "POST" && pathname === "/api/display/off-until-morning") {
-		controller.setOverride({ kind: "off", until: nextMorning(Date.now()) });
-		sendJson(response, 200, status(controller, request));
-		return;
-	}
-	if (request.method === "POST" && pathname === "/api/display/off-until-on") {
-		controller.setOverride({ kind: "off-until-on" });
-		sendJson(response, 200, status(controller, request));
-		return;
-	}
-	if (request.method === "DELETE" && pathname === "/api/override") {
-		controller.setOverride(null);
-		sendJson(response, 200, status(controller, request));
-		return;
-	}
-	if (request.method === "PUT" && pathname === "/api/schedule") {
-		const schedule = await readJson(request);
-		const errors = validateSchedule(schedule);
-		if (errors.length > 0) {
-			sendJson(response, 400, { errors });
-			return;
-		}
-		controller.setSchedule(schedule);
-		sendJson(response, 200, status(controller, request));
-		return;
-	}
-
 	// 表示履歴は /api/status に混ぜない。MagicMirror が止まっていると問い合わせが
 	// タイムアウト（5秒）まで待つため、混ぜると5秒ごとの状態更新まで巻き込んで詰まる。
 	if (request.method === "GET" && pathname === "/api/slideshow/now") {
@@ -379,7 +235,7 @@ async function handle(request, response, controller) {
 	sendJson(response, 404, { error: "見つかりません" });
 }
 
-function startServer(controller) {
+function startServer() {
 	const configuredPort = Number(process.env.SIGNAGE_TIMER_PORT || DEFAULT_PORT);
 	if (!Number.isInteger(configuredPort) || configuredPort < 1 || configuredPort > 65535) {
 		throw new Error("SIGNAGE_TIMER_PORT は 1〜65535 の整数にしてください");
@@ -389,7 +245,7 @@ function startServer(controller) {
 	}
 
 	const server = http.createServer((request, response) => {
-		handle(request, response, controller).catch((error) => {
+		handle(request, response).catch((error) => {
 			if (response.headersSent) {
 				response.destroy();
 				return;
@@ -403,4 +259,4 @@ function startServer(controller) {
 	return server;
 }
 
-module.exports = { startServer, handle, nextMorning };
+module.exports = { startServer, handle };
