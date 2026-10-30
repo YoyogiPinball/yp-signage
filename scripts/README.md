@@ -7,8 +7,8 @@
 |---|---|
 | `mm-start.sh` | MagicMirror を起動する。ssh 越しに起動しても死なないよう `systemd-run --user` で常駐させる |
 | `mm-display.sh` | 出すモニターを `.env` の `SIGNAGE_MONITOR` から決める。`mm-start.sh`・`mm-shot.sh`・`mm-placement.sh` が読み込む関数の置き場で、単体では実行しない |
-| `mm-placement.sh` | サイネージの窓が出すはずのモニターに載っているかを `ok` / `misplaced` / `skip` で返す。`mm-placement.js` がモニター構成の変化のあとに呼ぶ |
-| `mm-placement.js` | モニター構成の変化を監視し、サイネージの窓が外れていたら `mm-start.sh` で出し直す。`signage-placement.service` が常駐させる |
+| `mm-placement.sh` | サイネージの窓が出すはずのモニターに載っているかを `ok` / `misplaced` / `absent`（出すモニターが無い）/ `stopped`（止まっていて出すモニターはある）/ `skip` で返す。`mm-placement.js` がモニター構成の変化のあとに呼ぶ |
+| `mm-placement.js` | モニター構成の変化を監視し、サイネージの窓が外れていたら `mm-start.sh` で出し直す。出すモニターが無くなったら `mm-stop.sh` で止め、戻ったら起動し直す。`signage-placement.service` が常駐させる |
 | `mm-stop.sh` | 停止する |
 | `mm-ctl.sh` | スライドショーを操作する（下記） |
 | `mm-shot.sh` | 実際に映っている画面を1枚 PNG に撮る（`mm-shot.py` が実体） |

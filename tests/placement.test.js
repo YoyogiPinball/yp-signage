@@ -4,6 +4,7 @@
  *   - 構成の変化が続けて届いても、落ち着いてから1回だけ判定すること
  *   - 別のモニターに載っているときだけ出し直し、ok / skip では触らないこと
  *   - 出し直しが続けて走らないよう、間隔を空けること
+ *   - 出すモニターが消えたら止め、戻ったら起動し直すこと。起動し直すのは自分で止めたときだけ
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -33,7 +34,7 @@ function fakeClock() {
 
 function setup(results) {
 	const clock = fakeClock();
-	const calls = { check: 0, restart: 0 };
+	const calls = { check: 0, restart: 0, stop: 0 };
 	const watcher = placement.createPlacementWatcher({
 		check: async () => {
 			calls.check += 1;
@@ -41,6 +42,9 @@ function setup(results) {
 		},
 		restart: async () => {
 			calls.restart += 1;
+		},
+		stop: async () => {
+			calls.stop += 1;
 		},
 		now: clock.now,
 		setTimer: clock.setTimer,
@@ -83,6 +87,30 @@ test("出し直したあとは間隔が空くまで次の出し直しをしな�
 	watcher.onMonitorsChanged();
 	await clock.advance(placement.SETTLE_MS);
 	assert.equal(calls.restart, 2);
+});
+
+test("出すモニターが消えたら止め、戻ったら間隔を待たずに起動し直す", async () => {
+	const { clock, calls, watcher } = setup(["misplaced", "absent", "stopped"]);
+	watcher.onMonitorsChanged();
+	await clock.advance(placement.SETTLE_MS);
+	assert.equal(calls.restart, 1);
+	watcher.onMonitorsChanged();
+	await clock.advance(placement.SETTLE_MS);
+	assert.equal(calls.stop, 1);
+	assert.equal(calls.restart, 1);
+	watcher.onMonitorsChanged();
+	await clock.advance(placement.SETTLE_MS);
+	assert.equal(calls.restart, 2);
+});
+
+test("自分で止めていないサイネージは、モニターがあっても起動しない", async () => {
+	const { clock, calls, watcher } = setup(["stopped", "absent", "ok", "stopped"]);
+	for (let i = 0; i < 4; i += 1) {
+		watcher.onMonitorsChanged();
+		await clock.advance(placement.SETTLE_MS);
+	}
+	assert.equal(calls.stop, 1);
+	assert.equal(calls.restart, 0);
 });
 
 test("止めたあとに届いた変化では判定しない", async () => {

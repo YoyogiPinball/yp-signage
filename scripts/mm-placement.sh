@@ -1,9 +1,11 @@
 #!/bin/bash
 # サイネージの窓が、出すはずのモニターに載っているかを1語で返す。mm-placement.js が
-# モニター構成の変化のあとに呼び、misplaced なら mm-start.sh で出し直す。
+# モニター構成の変化のあとに呼び、結果に応じて mm-start.sh / mm-stop.sh を走らせる。
 #   ok        載っている
 #   misplaced 別のモニターに載っている
-#   skip ...  判定しない（サイネージが動いていない・窓がまだ無い・出すモニターが無い）
+#   absent    動いているが、出すモニターが無い
+#   stopped   止まっていて、出すモニターはある
+#   skip ...  判定しない（画面に接続できない・窓がまだ無い・止まっていて出すモニターも無い）
 # 手で確かめるとき: bash ~/run/mm-placement.sh
 
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -11,9 +13,9 @@ DISPLAY_ID="${DISPLAY:-:0}"
 # shellcheck source=mm-display.sh
 . "$(dirname "$0")/mm-display.sh"
 
-if ! systemctl --user is-active --quiet magicmirror.service; then
-	echo "skip: サイネージは動いていません"
-	exit 0
+RUNNING=false
+if systemctl --user is-active --quiet magicmirror.service; then
+	RUNNING=true
 fi
 if ! XAUTH="$(signage_xauth "$DISPLAY_ID")"; then
 	echo "skip: 画面 $DISPLAY_ID に接続できません"
@@ -26,7 +28,15 @@ if [ -z "$MONITOR" ] && [ -f "$HOME/MagicMirror/.env" ]; then
 	MONITOR="$(sed -n 's/^[[:space:]]*SIGNAGE_MONITOR[[:space:]]*=[[:space:]]*\([A-Za-z0-9_-]*\)[[:space:]]*\(#.*\)\?$/\1/p' "$HOME/MagicMirror/.env" | tail -1)"
 fi
 if ! TARGET="$(DISPLAY="$DISPLAY_ID" XAUTHORITY="$XAUTH" signage_monitor "${MONITOR:-auto}" 2>/dev/null)"; then
-	echo "skip: 出すモニターが見つかりません"
+	if $RUNNING; then
+		echo "absent"
+	else
+		echo "skip: サイネージは動いておらず、出すモニターも見つかりません"
+	fi
+	exit 0
+fi
+if ! $RUNNING; then
+	echo "stopped"
 	exit 0
 fi
 

@@ -31,11 +31,20 @@ ssh を切ったあともユーザーのサービスを動かし続けるため�
 
 ユーザーサービス `signage-placement` がモニター構成の変化を監視しています。構成が落ち着いてから5秒後に窓の位置を確かめ、
 出すはずのモニターから外れていれば `mm-start.sh` で起動し直します。起動し直すとスライドショーは最初から始まります。
-出し直しは2分に1回までです。サイネージを止めているときは何もしません。
+出し直しは2分に1回までです。手でサイネージを止めているときは何もしません。
+
+出すモニターそのものが画面配置から外れたとき（GNOME の設定で無効にした、ケーブルを抜いたなど）は、
+残った画面を覆わないようサイネージを止めます。同じモニターが戻ると、構成が落ち着いてから5秒後に起動し直します。
+起動し直すのは `signage-placement` が自分で止めたときだけで、手で止めたサイネージは起動しません。
+外れてから止まるまでの数秒間は、GNOME が窓を残った画面へ移すため、その画面が覆われます。
+
+> **Note:** `SIGNAGE_MONITOR` が `auto` のままだと、縦置きのモニターが外れたときに原点にある別の外部モニター
+> （作業用のメイン画面など）が出す先に選ばれ、「載っている」と判定されて止まりません。
+> 出す先が決まっているなら、`~/MagicMirror/.env` に `SIGNAGE_MONITOR=<モニター名>` を書いてください。
 
 ```bash
-ssh signage 'bash ~/run/mm-placement.sh'                    # 今の位置の判定（ok / misplaced / skip）
-ssh signage 'journalctl --user -u signage-placement -f'     # 出し直した記録
+ssh signage 'bash ~/run/mm-placement.sh'                    # 今の位置の判定（ok / misplaced / absent / stopped / skip）
+ssh signage 'journalctl --user -u signage-placement -f'     # 出し直し・停止した記録
 ```
 
 ## 日々の操作
